@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Chaman QR</title>
+<style>
+:root{
+  --bg:#eef1fb; --ink:#1b1f33; --mute:#6a7090; --line:rgba(40,50,120,.12);
+  --glass:rgba(255,255,255,.62); --action:#3b4ce0; --action-ink:#fff; --card:#ffffffcc;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,Roboto,sans-serif}
+body{min-height:100vh;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 120px;overflow-x:hidden}
+.blobs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blobs i{position:absolute;border-radius:50%;filter:blur(60px);opacity:.7}
+.blobs i:nth-child(1){width:260px;height:260px;background:#c9d6ff;top:-60px;left:-50px}
+.blobs i:nth-child(2){width:240px;height:240px;background:#ffd6e8;top:38%;right:-80px}
+.blobs i:nth-child(3){width:260px;height:260px;background:#d2f4e3;bottom:-80px;left:10%}
+h1{font-size:22px;margin:4px 4px 12px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:13px;margin:0 0 10px;font-weight:700;color:var(--mute)}
+.sec{display:none}.sec.on{display:block}
+.card{background:var(--card);backdrop-filter:blur(14px) saturate(1.5);-webkit-backdrop-filter:blur(14px) saturate(1.5);
+  border-radius:22px;padding:14px;margin-bottom:12px;box-shadow:inset 0 1px 0 #fff,0 6px 22px rgba(40,50,120,.08)}
+.pv{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:5;text-align:center;
+  background:rgba(255,255,255,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+#qrbox{width:210px;height:210px;margin:0 auto 10px;border-radius:14px;overflow:hidden;
+  background-image:linear-gradient(45deg,#e6e9f5 25%,transparent 25%,transparent 75%,#e6e9f5 75%),linear-gradient(45deg,#e6e9f5 25%,transparent 25%,transparent 75%,#e6e9f5 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px}
+#qrbox canvas{width:100%!important;height:100%!important;display:block}
+#qrbox.empty{opacity:.35}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{flex:1;border:0;border-radius:14px;padding:12px 14px;font:600 14px system-ui;background:var(--action);color:var(--action-ink)}
+.btn.alt{background:#e4e8fa;color:var(--ink)}
+.chip{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 13px;font:500 13px system-ui}
+.chip.on{background:var(--action);color:#fff;border-color:transparent}
+.chip.big{padding:10px 16px;font-size:15px}
+label.f{display:block;margin:10px 0 0;font-size:12px;color:var(--mute)}
+input[type=text],input[type=url],input[type=tel],input[type=email],input[type=number],textarea,select{
+  width:100%;margin-top:4px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:15px system-ui;background:#fff;color:var(--ink)}
+textarea{min-height:80px;resize:vertical}
+.colors{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.colors label{display:flex;align-items:center;justify-content:space-between;font-size:13px;gap:8px}
+input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-radius:10px;padding:2px;background:#fff}
+.sw{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:14px}
+input[type=range]{width:100%;accent-color:var(--action)}
+.gr{display:none}.gr.on{display:block}
+details summary{font-weight:700;color:var(--mute);font-size:13px;cursor:pointer;list-style:none}
+details summary::-webkit-details-marker{display:none}
+#card{width:100%;height:auto;border-radius:20px;display:block;box-shadow:0 8px 28px rgba(40,50,120,.14)}
+.logorow{display:flex;gap:8px;align-items:center;margin-top:8px}
+.logorow img{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#e4e8fa}
+/* glass pill nav */
+nav{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);
+  width:min(330px,90vw);height:58px;border-radius:999px;display:grid;grid-template-columns:1fr 1fr;padding:5px;z-index:20;
+  background:rgba(255,255,255,.55);
+  background:color-mix(in srgb,#fff 55%,transparent);
+  backdrop-filter:blur(18px) saturate(1.7);-webkit-backdrop-filter:blur(18px) saturate(1.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(40,50,120,.08),0 10px 30px rgba(40,50,120,.2)}
+nav::after{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:999px;
+  background:var(--action);box-shadow:0 4px 14px rgba(59,76,224,.45);transition:transform .32s cubic-bezier(.3,1.3,.5,1);z-index:0}
+nav[data-tab=pay]::after{transform:translateX(100%)}
+nav button{position:relative;z-index:1;border:0;background:none;font:600 14px system-ui;color:var(--mute);transition:color .2s}
+nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:#fff}
+#toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:#1b1f33;color:#fff;padding:10px 16px;
+  border-radius:999px;font-size:13px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
+#toast.on{opacity:1;transform:translateX(-50%)}
+.hint{font-size:12px;color:var(--mute);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="blobs"><i></i><i></i><i></i></div>
+
+<!-- TAB 1: GENERATOR -->
+<section class="sec on" id="gen">
+  <h1>QR Generator</h1>
+  <div class="card pv">
+    <div id="qrbox"></div>
+    <div class="row">
+      <button class="btn" id="gSave">Save PNG</button>
+      <button class="btn alt" id="gShare">Share</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Content</h2>
+    <div class="row" id="typeChips"></div>
+    <div id="fields"></div>
+  </div>
+
+  <div class="card">
+    <h2>Quick styles</h2>
+    <div class="row" id="presets"></div>
+  </div>
+
+  <div class="card">
+    <h2>Shape</h2>
+    <div class="hint" style="margin:0 0 6px">Dots</div><div class="row" id="chDots"></div>
+    <div class="hint" style="margin:12px 0 6px">Corner frame</div><div class="row" id="chCs"></div>
+    <div class="hint" style="margin:12px 0 6px">Corner dot</div><div class="row" id="chCd"></div>
+  </div>
+
+  <div class="card">
+    <h2>Colors</h2>
+    <div class="colors">
+      <label>Dots <input type="color" data-g="dc"></label>
+      <label>Corner frame <input type="color" data-g="csc"></label>
+      <label>Corner dot <input type="color" data-g="cdc"></label>
+      <label>Background <input type="color" data-g="bg"></label>
+    </div>
+    <div class="sw"><span>Transparent background</span><input type="checkbox" data-g="tr"></div>
+    <div class="sw"><span>Gradient dots</span><input type="checkbox" data-g="grad"></div>
+    <div class="gr" id="grBox">
+      <div class="colors" style="margin-top:10px">
+        <label>Second color <input type="color" data-g="dc2"></label>
+        <label>Type <select data-g="gt" style="width:auto;margin:0"><option value="linear">Linear</option><option value="radial">Radial</option></select></label>
+      </div>
+      <label class="f">Angle</label><input type="range" min="0" max="360" data-g="ga">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Logo in the middle</h2>
+    <div class="logorow">
+      <img id="gLogoImg" alt="" style="display:none">
+      <button class="btn alt" id="gLogoBtn">Choose image</button>
+      <button class="btn alt" id="gLogoDel" style="display:none">Remove</button>
+    </div>
+    <label class="f">Logo size</label><input type="range" min="10" max="50" data-g="ls" data-s="0.01">
+    <label class="f">Space around logo</label><input type="range" min="0" max="20" data-g="lm">
+    <label class="f">Error correction (higher = scans with bigger logo)</label>
+    <select data-g="ecl"><option value="L">Low</option><option value="M">Medium</option><option value="Q">Good</option><option value="H">Best</option></select>
+    <label class="f">Quiet zone (border)</label><input type="range" min="0" max="40" data-g="mg">
+    <div class="row" style="margin-top:12px"><button class="btn alt" id="gReset">Reset design</button></div>
+  </div>
+</section>
+
+<!-- TAB 2: PAY -->
+<section class="sec" id="pay">
+  <h1>Pay QR</h1>
+  <div class="card">
+    <canvas id="card"></canvas>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="pSave">Save card</button>
+      <button class="btn alt" id="pShare">Share</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tap an amount</h2>
+    <div class="row" id="amtChips"></div>
+    <label class="f">Other amount (₹)</label>
+    <input type="number" inputmode="decimal" id="pCustom" placeholder="e.g. 75">
+  </div>
+
+  <div class="card">
+    <details id="pDet">
+      <summary>Payment details</summary>
+      <label class="f">UPI ID</label><input type="text" data-p="pa" autocapitalize="off" autocomplete="off" placeholder="name@bank">
+      <label class="f">Name on card</label><input type="text" data-p="pn" placeholder="Shop or person name">
+      <label class="f">Note in payment (optional)</label><input type="text" data-p="note">
+      <label class="f">Bottom text</label><input type="text" data-p="foot">
+      <label class="f">Quick amounts (comma separated)</label><input type="text" id="pAmts">
+      <div class="logorow">
+        <img id="pLogoImg" alt="" style="display:none">
+        <button class="btn alt" id="pLogoBtn">Choose logo</button>
+        <button class="btn alt" id="pLogoDel" style="display:none">Remove</button>
+      </div>
+      <div class="sw"><span>Use Generator design for this QR</span><input type="checkbox" id="pStyle"></div>
+    </details>
+  </div>
+</section>
+
+<nav data-tab="gen">
+  <button data-t="gen">Generator</button>
+  <button data-t="pay">Pay QR</button>
+</nav>
+<div id="toast"></div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<script src="qr-code-styling.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),1800)}
+
+/* ---------- shared: QR options ---------- */
+const DOTS=[['square','Square'],['rounded','Rounded'],['dots','Dots'],['classy','Classy'],['classy-rounded','Classy+'],['extra-rounded','Soft']];
+const CSQ=[['square','Square'],['dot','Round'],['extra-rounded','Soft']];
+const CDOT=[['square','Square'],['dot','Round']];
+const PRESETS=[
+ {n:'Classic',d:{dots:'square',dc:'#111111',grad:false,cs:'square',csc:'#111111',cd:'square',cdc:'#111111',bg:'#ffffff',tr:false}},
+ {n:'Ocean',d:{dots:'rounded',dc:'#0ea5e9',dc2:'#14b8a6',grad:true,gt:'linear',ga:45,cs:'extra-rounded',csc:'#0369a1',cd:'dot',cdc:'#0369a1',bg:'#ffffff',tr:false}},
+ {n:'Sunset',d:{dots:'dots',dc:'#f97316',dc2:'#ec4899',grad:true,gt:'linear',ga:135,cs:'dot',csc:'#be185d',cd:'dot',cdc:'#be185d',bg:'#fff7ed',tr:false}},
+ {n:'Forest',d:{dots:'classy',dc:'#166534',dc2:'#65a30d',grad:true,gt:'radial',ga:0,cs:'square',csc:'#14532d',cd:'square',cdc:'#14532d',bg:'#f7fee7',tr:false}},
+ {n:'Midnight',d:{dots:'classy-rounded',dc:'#e2e8f0',grad:false,cs:'extra-rounded',csc:'#38bdf8',cd:'dot',cdc:'#38bdf8',bg:'#0f172a',tr:false}},
+ {n:'Candy',d:{dots:'dots',dc:'#d946ef',dc2:'#6366f1',grad:true,gt:'linear',ga:60,cs:'dot',csc:'#7c3aed',cd:'dot',cdc:'#7c3aed',bg:'#fff1f7',tr:false}}
+];
+function qropts(D,data,size,logo,margin){
+  const dots={type:D.dots};
+  if(D.grad) dots.gradient={type:D.gt,rotation:(D.ga||0)*Math.PI/180,colorStops:[{offset:0,color:D.dc},{offset:1,color:D.dc2}]};
+  else dots.color=D.dc;
+  const ecl=logo&&(D.ecl==='L'||D.ecl==='M')?'Q':D.ecl;
+  return {width:size,height:size,type:'canvas',data:data||'Chaman QR',margin:margin,
+    qrOptions:{errorCorrectionLevel:ecl},dotsOptions:dots,
+    cornersSquareOptions:{type:D.cs,color:D.csc},cornersDotOptions:{type:D.cd,color:D.cdc},
+    backgroundOptions:{color:D.tr?'rgba(0,0,0,0)':D.bg},
+    image:logo||'',imageOptions:{hideBackgroundDots:true,imageSize:D.ls,margin:D.lm,crossOrigin:'anonymous'}};
+}
+const b2b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
+const blobImg=b=>imgFrom(URL.createObjectURL(b));
+const imgFrom=u=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=u});
+async function output(blob,name,mode){
+  if(!blob){toast('Could not create image');return}
+  if(window.Android){const b=await b2b64(blob);mode==='share'?Android.shareImage(b,name):Android.saveImage(b,name);}
+  else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+}
+function pickLogo(cb){
+  const f=$('#file');f.value='';
+  f.onchange=()=>{const file=f.files[0];if(!file)return;const fr=new FileReader();
+    fr.onload=async()=>{const im=await imgFrom(fr.result);if(!im)return;const s=256,c=document.createElement('canvas');c.width=c.height=s;
+      const x=c.getContext('2d'),m=Math.min(im.width,im.height);x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,s,s);cb(c.toDataURL('image/png'));};
+    fr.readAsDataURL(file);};
+  f.click();
+}
+function upiLink(pa,pn,am,tn){
+  let u='upi://pay?pa='+String(pa).trim();
+  if(pn)u+='&pn='+encodeURIComponent(pn);
+  if(am&&+am>0)u+='&am='+(+am).toFixed(2);
+  u+='&cu=INR';
+  if(tn)u+='&tn='+encodeURIComponent(tn);
+  return u;
+}
+
+/* ---------- TAB 1: generator ---------- */
+const TYPES={
+ link:{l:'Link',f:[['url','Website link','url']]},
+ text:{l:'Text',f:[['text','Your text','area']]},
+ wifi:{l:'WiFi',f:[['ssid','Network name'],['pw','Password'],['enc','Security','sel',['WPA','WEP','nopass']]]},
+ contact:{l:'Contact',f:[['name','Full name'],['tel','Phone','tel'],['mail','Email','email'],['org','Company'],['web','Website','url']]},
+ email:{l:'Email',f:[['to','To','email'],['sub','Subject'],['body','Message','area']]},
+ phone:{l:'Phone',f:[['tel','Phone number','tel']]},
+ sms:{l:'SMS',f:[['tel','Phone number','tel'],['msg','Message','area']]},
+ upi:{l:'UPI',f:[['pa','UPI ID'],['pn','Name'],['am','Amount (optional)','number'],['tn','Note']]}
+};
+const G0={type:'link',f:{},dots:'rounded',dc:'#111111',dc2:'#4f46e5',grad:false,gt:'linear',ga:45,cs:'extra-rounded',csc:'#111111',cd:'dot',cdc:'#111111',bg:'#ffffff',tr:false,logo:null,ls:0.3,lm:6,ecl:'M',mg:10};
+let G=Object.assign({},G0,store.get('cq_gen')||{});
+const wesc=s=>String(s).replace(/([\\;,:"])/g,'\\$1');
+function dataOf(){const f=G.f;switch(G.type){
+ case 'link':return f.url||'';
+ case 'text':return f.text||'';
+ case 'wifi':return f.ssid?`WIFI:T:${f.enc||'WPA'};S:${wesc(f.ssid)};P:${wesc(f.pw||'')};;`:'';
+ case 'contact':return (f.name||f.tel||f.mail)?['BEGIN:VCARD','VERSION:3.0','FN:'+(f.name||''),f.org?'ORG:'+f.org:'',f.tel?'TEL:'+f.tel:'',f.mail?'EMAIL:'+f.mail:'',f.web?'URL:'+f.web:'','END:VCARD'].filter(Boolean).join('\n'):'';
+ case 'email':return f.to?`mailto:${f.to}?subject=${encodeURIComponent(f.sub||'')}&body=${encodeURIComponent(f.body||'')}`:'';
+ case 'phone':return f.tel?'tel:'+f.tel:'';
+ case 'sms':return f.tel?`SMSTO:${f.tel}:${f.msg||''}`:'';
+ case 'upi':return f.pa?upiLink(f.pa,f.pn,f.am,f.tn):'';
+}return ''}
+
+let qrPrev=null,updT;
+function upd(){clearTimeout(updT);updT=setTimeout(()=>{
+  const d=dataOf(),o=qropts(G,d,420,G.logo,Math.round(G.mg*420/300));
+  $('#qrbox').classList.toggle('empty',!d);
+  if(!qrPrev){qrPrev=new QRCodeStyling(o);qrPrev.append($('#qrbox'));}else qrPrev.update(o);
+  store.set('cq_gen',G);
+},70)}
+function chipRow(el,list,key){
+  const draw=()=>{el.innerHTML=list.map(([v,l])=>`<button class="chip${G[key]===v?' on':''}" data-v="${v}">${l}</button>`).join('')};
+  draw();el.onclick=e=>{const b=e.target.closest('.chip');if(!b)return;G[key]=b.dataset.v;draw();upd()};
+}
+function renderTypes(){
+  $('#typeChips').innerHTML=Object.entries(TYPES).map(([k,t])=>`<button class="chip${G.type===k?' on':''}" data-v="${k}">${t.l}</button>`).join('');
+  $('#fields').innerHTML=TYPES[G.type].f.map(([k,l,t,o])=>{
+    const v=(G.f[k]||'').toString().replace(/"/g,'&quot;');
+    if(t==='area')return `<label class="f">${l}</label><textarea data-k="${k}">${G.f[k]||''}</textarea>`;
+    if(t==='sel')return `<label class="f">${l}</label><select data-k="${k}">${o.map(x=>`<option${(G.f[k]||o[0])===x?' selected':''}>${x}</option>`).join('')}</select>`;
+    return `<label class="f">${l}</label><input type="${t==='number'?'number':t==='url'?'url':t==='tel'?'tel':t==='email'?'email':'text'}" ${t==='number'?'inputmode="decimal"':''} autocapitalize="off" data-k="${k}" value="${v}">`;
+  }).join('');
+}
+$('#typeChips').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;G.type=b.dataset.v;renderTypes();upd()};
+$('#fields').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;G.f[k]=e.target.value;upd()});
+$('#presets').innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-i="${i}">${p.n}</button>`).join('');
+$('#presets').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;Object.assign(G,PRESETS[+b.dataset.i].d);syncUI();upd()};
+$$('[data-g]').forEach(el=>el.addEventListener('input',()=>{
+  const k=el.dataset.g,s=+el.dataset.s||1;
+  G[k]=el.type==='checkbox'?el.checked:el.type==='range'?parseFloat(el.value)*s:el.value;
+  if(k==='grad')$('#grBox').classList.toggle('on',G.grad);
+  upd();
+}));
+function syncUI(){
+  $$('[data-g]').forEach(el=>{const k=el.dataset.g,s=+el.dataset.s||1;
+    if(el.type==='checkbox')el.checked=!!G[k];else if(el.type==='range')el.value=Math.round(G[k]/s);else el.value=G[k];});
+  $('#grBox').classList.toggle('on',G.grad);
+  chipRow($('#chDots'),DOTS,'dots');chipRow($('#chCs'),CSQ,'cs');chipRow($('#chCd'),CDOT,'cd');
+  const has=!!G.logo;$('#gLogoImg').style.display=has?'block':'none';if(has)$('#gLogoImg').src=G.logo;
+  $('#gLogoDel').style.display=has?'block':'none';$('#gLogoBtn').textContent=has?'Change':'Choose image';
+}
+$('#gLogoBtn').onclick=()=>pickLogo(u=>{G.logo=u;if(G.ecl==='L'||G.ecl==='M')G.ecl='Q';syncUI();upd()});
+$('#gLogoDel').onclick=()=>{G.logo=null;syncUI();upd()};
+$('#gReset').onclick=()=>{const keep={type:G.type,f:G.f};G=Object.assign({},G0,keep);syncUI();upd();toast('Design reset')};
+async function exportGen(mode){
+  const d=dataOf();if(!d){toast('Fill the details first');return}
+  const blob=await new QRCodeStyling(qropts(G,d,1024,G.logo,Math.round(G.mg*1024/300))).getRawData('png');
+  output(blob,'qr_'+Date.now()+'.png',mode);
+}
+$('#gSave').onclick=()=>exportGen('save');
+$('#gShare').onclick=()=>exportGen('share');
+
+/* ---------- TAB 2: pay card ---------- */
+const PLAIN={dots:'square',dc:'#000000',grad:false,cs:'square',csc:'#000000',cd:'square',cdc:'#000000',bg:'#ffffff',tr:false,ls:0.22,lm:4,ecl:'Q'};
+const P0={pa:'',pn:'',note:'',foot:'Scan to pay with any UPI app',amts:[10,20,25,50,100,200],sel:25,logo:null,style:false};
+let P=Object.assign({},P0,store.get('cq_pay')||{});
+function rr(x,X,Y,W,H,R,fill){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();x.fillStyle=fill;x.fill();}
+function fit(x,txt,font,max){let s=parseInt(font);do{x.font=font.replace(/\d+px/,s+'px');s-=2}while(x.measureText(txt).width>max&&s>20)}
+let tok=0;
+async function drawCard(){
+  const my=++tok,c=$('#card'),W=1080,H=1500;c.width=W;c.height=H;const x=c.getContext('2d');
+  x.fillStyle='#f1f4fd';x.fillRect(0,0,W,H);
+  const name=P.pn||'Your name';
+  x.font='500 66px system-ui,sans-serif';
+  const tw=Math.min(x.measureText(name).width,720),gw=130+28+tw,gx=(W-gw)/2;
+  // header logo
+  x.save();x.beginPath();x.arc(gx+65,170,65,0,Math.PI*2);x.clip();
+  const li=P.logo?await imgFrom(P.logo):null;
+  if(li)x.drawImage(li,gx,105,130,130);else{x.fillStyle='#111';x.fillRect(gx,105,130,130);x.fillStyle='#fff';x.font='600 70px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText((name[0]||'Q').toUpperCase(),gx+65,175);}
+  x.restore();
+  x.fillStyle='#454851';x.textAlign='left';x.textBaseline='middle';fit(x,name,'500 66px system-ui,sans-serif',720);x.fillText(name,gx+158,176);
+  rr(x,90,300,900,1010,70,'#ffffff');
+  const data=P.pa?upiLink(P.pa,P.pn,P.sel,P.note):'';
+  if(data){
+    const D=P.style?G:PLAIN;
+    const blob=await new QRCodeStyling(qropts(D,data,720,P.logo,0)).getRawData('png');
+    const im=blob?await blobImg(blob):null;if(my!==tok)return;
+    if(im)x.drawImage(im,180,350,720,720);
+  }else{
+    x.fillStyle='#eef1fb';rr(x,180,350,720,720,40,'#eef1fb');x.fillStyle='#8a90ad';x.textAlign='center';x.font='500 44px system-ui';x.fillText('Add your UPI ID in',540,690);x.fillText('Payment details below',540,750);
+  }
+  if(my!==tok)return;
+  x.textAlign='center';x.textBaseline='middle';x.fillStyle='#454851';
+  if(P.pa){fit(x,'UPI ID: '+P.pa,'400 46px system-ui,sans-serif',840);x.fillText('UPI ID: '+P.pa,540,1150);}
+  if(P.sel){x.font='400 50px system-ui,sans-serif';x.fillText('Amount: ₹'+(+P.sel).toFixed(2),540,1235);}
+  if(P.foot){fit(x,P.foot,'400 56px system-ui,sans-serif',900);x.fillText(P.foot,540,1410);}
+}
+function renderAmts(){
+  $('#amtChips').innerHTML=`<button class="chip big${!P.sel?' on':''}" data-a="">Any</button>`+P.amts.map(a=>`<button class="chip big${+P.sel===a?' on':''}" data-a="${a}">₹${a}</button>`).join('');
+  $('#pCustom').value=P.sel&&!P.amts.includes(+P.sel)?P.sel:'';
+}
+$('#amtChips').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;P.sel=b.dataset.a?+b.dataset.a:null;savePay();renderAmts();drawCard()};
+$('#pCustom').oninput=e=>{const v=parseFloat(e.target.value);P.sel=v>0?v:null;savePay();$('#amtChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',(c.dataset.a?+c.dataset.a:null)===P.sel));drawCard()};
+$$('[data-p]').forEach(el=>{el.value=P[el.dataset.p]||'';el.addEventListener('input',()=>{P[el.dataset.p]=el.value;savePay();drawCard()})});
+$('#pAmts').value=P.amts.join(', ');
+$('#pAmts').oninput=e=>{const a=[...new Set(e.target.value.split(/[\s,]+/).map(Number).filter(n=>n>0))].slice(0,12);if(a.length){P.amts=a;savePay();renderAmts()}};
+$('#pStyle').checked=!!P.style;$('#pStyle').onchange=e=>{P.style=e.target.checked;savePay();drawCard()};
+function syncPayLogo(){const has=!!P.logo;$('#pLogoImg').style.display=has?'block':'none';if(has)$('#pLogoImg').src=P.logo;$('#pLogoDel').style.display=has?'block':'none';$('#pLogoBtn').textContent=has?'Change logo':'Choose logo'}
+$('#pLogoBtn').onclick=()=>pickLogo(u=>{P.logo=u;savePay();syncPayLogo();drawCard()});
+$('#pLogoDel').onclick=()=>{P.logo=null;savePay();syncPayLogo();drawCard()};
+function savePay(){store.set('cq_pay',P)}
+async function exportCard(mode){
+  if(!P.pa){toast('Add your UPI ID first');$('#pDet').open=true;return}
+  await drawCard();$('#card').toBlob(b=>output(b,'pay_'+(P.sel||'any')+'_'+Date.now()+'.png',mode),'image/png');
+}
+$('#pSave').onclick=()=>exportCard('save');
+$('#pShare').onclick=()=>exportCard('share');
+
+/* ---------- tabs + init ---------- */
+function tab(t){
+  $('nav').dataset.tab=t;$$('.sec').forEach(s=>s.classList.toggle('on',s.id===t));
+  store.set('cq_tab',t);window.scrollTo(0,0);if(t==='pay')drawCard();
+}
+$$('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+renderTypes();syncUI();renderAmts();syncPayLogo();
+$('#pDet').open=!P.pa;
+upd();
+tab(store.get('cq_tab')||'gen');
+</script>
+</body>
+</html>
