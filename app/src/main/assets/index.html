@@ -167,6 +167,8 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
         <button class="btn alt" id="pLogoDel" style="display:none">Remove</button>
       </div>
       <div class="sw"><span>Use Generator design for this QR</span><input type="checkbox" id="pStyle"></div>
+      <div class="hint" style="margin-top:14px">Details auto-save on this phone. Backup file goes to Documents/ChamanQR.</div>
+      <div class="row" style="margin-top:8px"><button class="btn alt" id="pBk">Backup now</button><button class="btn alt" id="pRs">Restore</button></div>
     </details>
   </div>
 </section>
@@ -177,11 +179,44 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
 </nav>
 <div id="toast"></div>
 <input type="file" id="file" accept="image/*" hidden>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
 
 <script src="qr-code-styling.js"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const NA=(window.Android&&Android.loadData)?Android:null;
+const store={
+  get(k){let v=null;
+    if(NA){try{v=NA.loadData(k)}catch(e){}if(v==='')v=null}
+    if(v==null){try{v=localStorage.getItem(k)}catch(e){}}
+    try{return JSON.parse(v)}catch(e){return null}},
+  set(k,v){const s=JSON.stringify(v);
+    try{localStorage.setItem(k,s)}catch(e){}
+    if(NA){try{NA.saveData(k,s)}catch(e){}}
+    if(k==='cq_pay'||k==='cq_gen')autoBackup();}
+};
+/* ---------- backup / restore (file in Documents/ChamanQR) ---------- */
+const BK='chaman-qr-backup.json';
+function bkJson(){return JSON.stringify({app:'chaman-qr',v:1,pay:P,gen:G})}
+let bkT;
+function autoBackup(){
+  if(!NA||!NA.backupFile)return;
+  clearTimeout(bkT);bkT=setTimeout(()=>{try{if(typeof P!=='undefined'&&P.pa)NA.backupFile(bkJson(),BK)}catch(e){}},1500);
+}
+function manualBackup(){
+  if(!P.pa){toast('Add your UPI ID first');return}
+  if(NA&&NA.backupFile){const r=NA.backupFile(bkJson(),BK);toast(r==='ok'?'Backup saved: Documents/ChamanQR':'Backup failed: '+r)}
+  else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bkJson()],{type:'application/json'}));a.download=BK;a.click()}
+}
+function restoreBackup(){
+  const f=$('#fileJson');f.value='';
+  f.onchange=()=>{const file=f.files[0];if(!file)return;const fr=new FileReader();
+    fr.onload=()=>{try{const d=JSON.parse(fr.result);if(d.app!=='chaman-qr'||!d.pay)throw 0;
+      store.set('cq_pay',Object.assign({},P0,d.pay));if(d.gen)store.set('cq_gen',Object.assign({},G0,d.gen));
+      toast('Restored');setTimeout(()=>location.reload(),600)}catch(e){toast('Not a valid backup file')}};
+    fr.readAsText(file);};
+  f.click();
+}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),1800)}
 
 /* ---------- shared: QR options ---------- */
@@ -311,20 +346,22 @@ const PLAIN={dots:'square',dc:'#000000',grad:false,cs:'square',csc:'#000000',cd:
 const P0={pa:'',pn:'',note:'',foot:'Scan to pay with any UPI app',amts:[10,20,25,50,100,200],sel:25,logo:null,style:false};
 let P=Object.assign({},P0,store.get('cq_pay')||{});
 function rr(x,X,Y,W,H,R,fill){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();x.fillStyle=fill;x.fill();}
-function fit(x,txt,font,max){let s=parseInt(font);do{x.font=font.replace(/\d+px/,s+'px');s-=2}while(x.measureText(txt).width>max&&s>20)}
+function fit(x,txt,font,max){const m=font.match(/(\d+)px/);let s=m?+m[1]:40;x.font=font.replace(/\d+px/,s+'px');
+  while(x.measureText(txt).width>max&&s>20){s-=2;x.font=font.replace(/\d+px/,s+'px')}return s}
 let tok=0;
 async function drawCard(){
   const my=++tok,c=$('#card'),W=1080,H=1500;c.width=W;c.height=H;const x=c.getContext('2d');
   x.fillStyle='#f1f4fd';x.fillRect(0,0,W,H);
   const name=P.pn||'Your name';
-  x.font='500 66px system-ui,sans-serif';
-  const tw=Math.min(x.measureText(name).width,720),gw=130+28+tw,gx=(W-gw)/2;
+  x.textBaseline='middle';
+  fit(x,name,'500 66px system-ui,sans-serif',720);
+  const nameFont=x.font,tw=x.measureText(name).width,gw=130+28+tw,gx=(W-gw)/2;
   // header logo
   x.save();x.beginPath();x.arc(gx+65,170,65,0,Math.PI*2);x.clip();
   const li=P.logo?await imgFrom(P.logo):null;
   if(li)x.drawImage(li,gx,105,130,130);else{x.fillStyle='#111';x.fillRect(gx,105,130,130);x.fillStyle='#fff';x.font='600 70px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText((name[0]||'Q').toUpperCase(),gx+65,175);}
   x.restore();
-  x.fillStyle='#454851';x.textAlign='left';x.textBaseline='middle';fit(x,name,'500 66px system-ui,sans-serif',720);x.fillText(name,gx+158,176);
+  x.font=nameFont;x.fillStyle='#454851';x.textAlign='left';x.textBaseline='middle';x.fillText(name,gx+158,176);
   rr(x,90,300,900,1010,70,'#ffffff');
   const data=P.pa?upiLink(P.pa,P.pn,P.sel,P.note):'';
   if(data){
@@ -359,6 +396,7 @@ async function exportCard(mode){
   if(!P.pa){toast('Add your UPI ID first');$('#pDet').open=true;return}
   await drawCard();$('#card').toBlob(b=>output(b,'pay_'+(P.sel||'any')+'_'+Date.now()+'.png',mode),'image/png');
 }
+$('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
 $('#pSave').onclick=()=>exportCard('save');
 $('#pShare').onclick=()=>exportCard('share');
 

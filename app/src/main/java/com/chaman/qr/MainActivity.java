@@ -1,7 +1,10 @@
 package com.chaman.qr;
 
 import android.app.Activity;
+import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -46,8 +49,11 @@ public class MainActivity extends Activity {
                 fileCb = cb;
                 Intent i = new Intent(Intent.ACTION_GET_CONTENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
-                i.setType("image/*");
-                startActivityForResult(Intent.createChooser(i, "Choose image"), REQ_FILE);
+                boolean json = false;
+                String[] types = p.getAcceptTypes();
+                if (types != null) for (String t : types) if (t != null && t.contains("json")) json = true;
+                i.setType(json ? "*/*" : "image/*");
+                startActivityForResult(Intent.createChooser(i, json ? "Choose backup file" : "Choose image"), REQ_FILE);
                 return true;
             }
         });
@@ -73,6 +79,58 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
+        @JavascriptInterface
+        public void saveData(String key, String val) {
+            getSharedPreferences("cq", MODE_PRIVATE).edit().putString(key, val).apply();
+        }
+
+        @JavascriptInterface
+        public String loadData(String key) {
+            SharedPreferences sp = getSharedPreferences("cq", MODE_PRIVATE);
+            String v = sp.getString(key, null);
+            return v == null ? "" : v;
+        }
+
+        @JavascriptInterface
+        public String backupFile(String text, String name) {
+            try {
+                Uri coll = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                String rel = Environment.DIRECTORY_DOCUMENTS + "/ChamanQR/";
+                Uri target = null;
+                try (Cursor c = getContentResolver().query(coll,
+                        new String[]{MediaStore.MediaColumns._ID},
+                        MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?",
+                        new String[]{name, rel}, null)) {
+                    if (c != null && c.moveToFirst()) target = ContentUris.withAppendedId(coll, c.getLong(0));
+                }
+                byte[] data = text.getBytes("UTF-8");
+                if (target != null) {
+                    try (OutputStream os = getContentResolver().openOutputStream(target, "wt")) {
+                        os.write(data);
+                        return "ok";
+                    } catch (Exception e) {
+                        target = null; // old file owned by another install: write a new one
+                    }
+                }
+                String nm = name;
+                for (int n = 0; n < 2; n++) {
+                    ContentValues v = new ContentValues();
+                    v.put(MediaStore.MediaColumns.DISPLAY_NAME, n == 0 ? nm : nm.replace(".json", "-" + System.currentTimeMillis() + ".json"));
+                    v.put(MediaStore.MediaColumns.MIME_TYPE, "application/json");
+                    v.put(MediaStore.MediaColumns.RELATIVE_PATH, rel);
+                    Uri u = getContentResolver().insert(coll, v);
+                    if (u == null) continue;
+                    try (OutputStream os = getContentResolver().openOutputStream(u, "wt")) {
+                        os.write(data);
+                        return "ok";
+                    }
+                }
+                return "could not create file";
+            } catch (Exception e) {
+                return String.valueOf(e.getMessage());
+            }
+        }
+
         @JavascriptInterface
         public void saveImage(String b64, String name) {
             try {
