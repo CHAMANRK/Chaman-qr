@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -39,3 +41,14 @@ jobs:
         with:
           name: ChamanQR-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish release (public download link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          cp app/build/outputs/apk/debug/app-debug.apk chaman-qr.apk
+          gh release delete latest --cleanup-tag -y || true
+          gh release create latest chaman-qr.apk --target "$GITHUB_SHA" --prerelease \
+            --title "Chaman QR v$VER (build $GITHUB_RUN_NUMBER)" \
+            --notes "Latest debug APK. Direct link: https://github.com/$GITHUB_REPOSITORY/releases/download/latest/chaman-qr.apk"

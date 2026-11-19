@@ -11,7 +11,9 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 ## Layout
 - Tab 1 Generator: link/text/wifi/contact/email/phone/sms/upi, styles, logo
 - Tab 2 Pay QR: canvas card (1080x1500), amount chips, Payment details (UPI ID, naam, note, footer, logo)
-- Bridge: saveImage, shareImage, saveData/loadData (SharedPreferences), backupFile (Documents/ChamanQR)
+- Bridge: saveImage, shareImage, saveData/loadData (SharedPreferences), backupFile (Documents/ChamanQR), tick (haptic), setBright (full brightness + keep screen on)
+- Pay QR: profiles (max 5, `P.profiles` + `P.cur`; amounts/style shared), Show full-screen mode, Payment details collapsed with summary + Edit/Done
+- Release: CI har build pe `latest` pre-release banata hai, direct link: https://github.com/CHAMANRK/chaman-qr/releases/download/latest/chaman-qr.apk
 
 ## Rules
 - Keys/tokens/passwords kabhi chat me paste nahi, kabhi file me hardcode nahi
@@ -20,6 +22,9 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 - Backup tabhi likhna jab UPI ID bhara ho (khali data se purana backup overwrite na ho)
 
 ## Status
+- v0.3: (device test pending)
+  - Pay QR: Show full-screen + brightness, collapsed details + Edit, multiple profiles, haptic + pop animation, Saved tick
+  - CI: public GitHub Release `latest` with chaman-qr.apk
 - v0.2: (device test pending)
   - Fix: card pe naam/UPI ID/footer ka `fit()` bug (parseInt font weight pakad raha tha)
   - Payment details native storage me save + auto backup file + Restore button
@@ -27,6 +32,6 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 - v0.1: base app
 
 ## Remaining
-- Device test v0.2
-- UI/UX improvements (ideas suggest kiye, Najeef ke confirm ka wait)
+- Device test v0.2 aur v0.3
+- Baaki UI ideas (chips scroll row, sticky preview, extra line on card) agar chahiye
 - Keystore secrets set karna (ek baar), uske baad pehla update ek baar uninstall karke install karna padega

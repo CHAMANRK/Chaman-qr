@@ -66,6 +66,22 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
   border-radius:999px;font-size:13px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 #toast.on{opacity:1;transform:translateX(-50%)}
 .hint{font-size:12px;color:var(--mute);margin-top:6px}
+.chip,.btn{transition:transform .12s,background .2s}
+.chip:active{transform:scale(.93)}.btn:active{transform:scale(.97)}
+.chip.pop{animation:pop .24s}
+@keyframes pop{0%{transform:scale(.88)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+#card.fl{animation:fl .28s}
+@keyframes fl{0%{opacity:.55;transform:scale(.985)}100%{opacity:1;transform:none}}
+.btn.ok{background:#16a34a;color:#fff}
+.srow{display:flex;justify-content:space-between;align-items:center}
+.edit{color:var(--action);font-weight:600}
+.ssub{font-weight:500;color:var(--ink);font-size:14px;margin-top:4px;word-break:break-all}
+#profRow{margin:0 2px 10px}
+.chip.add{border-style:dashed;color:var(--action)}
+#show{position:fixed;inset:0;background:#f1f4fd;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column}
+#show.on{display:flex}
+#show img{max-width:100vw;max-height:calc(100vh - 44px);object-fit:contain}
+#show .sh{font-size:12px;color:var(--mute);padding:10px}
 </style>
 </head>
 <body>
@@ -138,11 +154,13 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
 <!-- TAB 2: PAY -->
 <section class="sec" id="pay">
   <h1>Pay QR</h1>
+  <div class="row" id="profRow"></div>
   <div class="card">
     <canvas id="card"></canvas>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="pSave">Save card</button>
       <button class="btn alt" id="pShare">Share</button>
+      <button class="btn alt" id="pShow">Show</button>
     </div>
   </div>
 
@@ -155,7 +173,7 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
 
   <div class="card">
     <details id="pDet">
-      <summary>Payment details</summary>
+      <summary><div class="srow"><span>Payment details</span><span class="edit">✎ Edit</span></div><div class="ssub" id="pSub"></div></summary>
       <label class="f">UPI ID</label><input type="text" data-p="pa" autocapitalize="off" autocomplete="off" placeholder="name@bank">
       <label class="f">Name on card</label><input type="text" data-p="pn" placeholder="Shop or person name">
       <label class="f">Note in payment (optional)</label><input type="text" data-p="note">
@@ -169,6 +187,7 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
       <div class="sw"><span>Use Generator design for this QR</span><input type="checkbox" id="pStyle"></div>
       <div class="hint" style="margin-top:14px">Details auto-save on this phone. Backup file goes to Documents/ChamanQR.</div>
       <div class="row" style="margin-top:8px"><button class="btn alt" id="pBk">Backup now</button><button class="btn alt" id="pRs">Restore</button></div>
+      <div class="row" style="margin-top:8px"><button class="btn alt" id="pDel" style="display:none">Delete this profile</button><button class="btn" id="pDone">Done</button></div>
     </details>
   </div>
 </section>
@@ -177,6 +196,7 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
   <button data-t="gen">Generator</button>
   <button data-t="pay">Pay QR</button>
 </nav>
+<div id="show"><img id="showImg" alt=""><div class="sh">Tap anywhere to close</div></div>
 <div id="toast"></div>
 <input type="file" id="file" accept="image/*" hidden>
 <input type="file" id="fileJson" accept=".json,application/json" hidden>
@@ -219,6 +239,8 @@ function restoreBackup(){
 }
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),1800)}
 
+function tick(){try{if(window.Android&&Android.tick)Android.tick();else if(navigator.vibrate)navigator.vibrate(8)}catch(e){}}
+function flash(b,t){if(!b)return;const o=b.dataset.o||b.textContent;b.dataset.o=o;b.textContent=t;b.classList.add('ok');clearTimeout(b._t);b._t=setTimeout(()=>{b.textContent=o;b.classList.remove('ok')},1300)}
 /* ---------- shared: QR options ---------- */
 const DOTS=[['square','Square'],['rounded','Rounded'],['dots','Dots'],['classy','Classy'],['classy-rounded','Classy+'],['extra-rounded','Soft']];
 const CSQ=[['square','Square'],['dot','Round'],['extra-rounded','Soft']];
@@ -333,18 +355,25 @@ function syncUI(){
 $('#gLogoBtn').onclick=()=>pickLogo(u=>{G.logo=u;if(G.ecl==='L'||G.ecl==='M')G.ecl='Q';syncUI();upd()});
 $('#gLogoDel').onclick=()=>{G.logo=null;syncUI();upd()};
 $('#gReset').onclick=()=>{const keep={type:G.type,f:G.f};G=Object.assign({},G0,keep);syncUI();upd();toast('Design reset')};
-async function exportGen(mode){
+async function exportGen(mode,btn){
   const d=dataOf();if(!d){toast('Fill the details first');return}
+  tick();
   const blob=await new QRCodeStyling(qropts(G,d,1024,G.logo,Math.round(G.mg*1024/300))).getRawData('png');
   output(blob,'qr_'+Date.now()+'.png',mode);
+  if(blob)flash(btn,mode==='save'?'✓ Saved':'✓ Shared');
 }
-$('#gSave').onclick=()=>exportGen('save');
-$('#gShare').onclick=()=>exportGen('share');
+$('#gSave').onclick=()=>exportGen('save',$('#gSave'));
+$('#gShare').onclick=()=>exportGen('share',$('#gShare'));
 
 /* ---------- TAB 2: pay card ---------- */
 const PLAIN={dots:'square',dc:'#000000',grad:false,cs:'square',csc:'#000000',cd:'square',cdc:'#000000',bg:'#ffffff',tr:false,ls:0.22,lm:4,ecl:'Q'};
 const P0={pa:'',pn:'',note:'',foot:'Scan to pay with any UPI app',amts:[10,20,25,50,100,200],sel:25,logo:null,style:false};
 let P=Object.assign({},P0,store.get('cq_pay')||{});
+const PROF_KEYS=['pa','pn','note','foot','logo'];
+const snap=()=>{const o={};PROF_KEYS.forEach(k=>o[k]=P[k]);return o};
+if(!Array.isArray(P.profiles)||!P.profiles.length){P.profiles=[snap()];P.cur=0}
+if(!(P.cur>=0&&P.cur<P.profiles.length))P.cur=0;
+Object.assign(P,P.profiles[P.cur]);
 function rr(x,X,Y,W,H,R,fill){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();x.fillStyle=fill;x.fill();}
 function fit(x,txt,font,max){const m=font.match(/(\d+)px/);let s=m?+m[1]:40;x.font=font.replace(/\d+px/,s+'px');
   while(x.measureText(txt).width>max&&s>20){s-=2;x.font=font.replace(/\d+px/,s+'px')}return s}
@@ -382,23 +411,56 @@ function renderAmts(){
   $('#amtChips').innerHTML=`<button class="chip big${!P.sel?' on':''}" data-a="">Any</button>`+P.amts.map(a=>`<button class="chip big${+P.sel===a?' on':''}" data-a="${a}">₹${a}</button>`).join('');
   $('#pCustom').value=P.sel&&!P.amts.includes(+P.sel)?P.sel:'';
 }
-$('#amtChips').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;P.sel=b.dataset.a?+b.dataset.a:null;savePay();renderAmts();drawCard()};
+function cardFlash(){const c=$('#card');c.classList.remove('fl');void c.offsetWidth;c.classList.add('fl')}
+$('#amtChips').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;tick();P.sel=b.dataset.a?+b.dataset.a:null;savePay();renderAmts();const on=$('#amtChips .chip.on');if(on)on.classList.add('pop');cardFlash();drawCard()};
 $('#pCustom').oninput=e=>{const v=parseFloat(e.target.value);P.sel=v>0?v:null;savePay();$('#amtChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',(c.dataset.a?+c.dataset.a:null)===P.sel));drawCard()};
-$$('[data-p]').forEach(el=>{el.value=P[el.dataset.p]||'';el.addEventListener('input',()=>{P[el.dataset.p]=el.value;savePay();drawCard()})});
+$$('[data-p]').forEach(el=>{el.value=P[el.dataset.p]||'';el.addEventListener('input',()=>{P[el.dataset.p]=el.value;savePay();syncSub();renderProf();drawCard()})});
 $('#pAmts').value=P.amts.join(', ');
 $('#pAmts').oninput=e=>{const a=[...new Set(e.target.value.split(/[\s,]+/).map(Number).filter(n=>n>0))].slice(0,12);if(a.length){P.amts=a;savePay();renderAmts()}};
 $('#pStyle').checked=!!P.style;$('#pStyle').onchange=e=>{P.style=e.target.checked;savePay();drawCard()};
 function syncPayLogo(){const has=!!P.logo;$('#pLogoImg').style.display=has?'block':'none';if(has)$('#pLogoImg').src=P.logo;$('#pLogoDel').style.display=has?'block':'none';$('#pLogoBtn').textContent=has?'Change logo':'Choose logo'}
 $('#pLogoBtn').onclick=()=>pickLogo(u=>{P.logo=u;savePay();syncPayLogo();drawCard()});
 $('#pLogoDel').onclick=()=>{P.logo=null;savePay();syncPayLogo();drawCard()};
-function savePay(){store.set('cq_pay',P)}
-async function exportCard(mode){
-  if(!P.pa){toast('Add your UPI ID first');$('#pDet').open=true;return}
-  await drawCard();$('#card').toBlob(b=>output(b,'pay_'+(P.sel||'any')+'_'+Date.now()+'.png',mode),'image/png');
+function savePay(){P.profiles[P.cur]=snap();store.set('cq_pay',P)}
+function syncSub(){$('#pSub').textContent=(P.pn?P.pn+' · ':'')+(P.pa||'UPI ID not set');$('#pDel').style.display=P.profiles.length>1?'block':'none'}
+function renderProf(){
+  $('#profRow').innerHTML=P.profiles.map((p,i)=>`<button class="chip big${i===P.cur?' on':''}" data-i="${i}">${(p.pn||p.pa||'Profile '+(i+1)).replace(/</g,'&lt;')}</button>`).join('')+(P.profiles.length<5?'<button class="chip big add" data-add="1">+ Add</button>':'');
 }
+function loadProfUI(){
+  $$('[data-p]').forEach(el=>el.value=P[el.dataset.p]||'');
+  syncPayLogo();syncSub();renderProf();$('#pDet').open=!P.pa;drawCard();
+}
+$('#profRow').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;tick();
+  P.profiles[P.cur]=snap();
+  if(b.dataset.add){P.profiles.push({pa:'',pn:'',note:'',foot:P0.foot,logo:null});P.cur=P.profiles.length-1}
+  else P.cur=+b.dataset.i;
+  Object.assign(P,P.profiles[P.cur]);store.set('cq_pay',P);loadProfUI();cardFlash()};
+let delT;
+$('#pDel').onclick=e=>{const b=e.target;
+  if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to delete';clearTimeout(delT);delT=setTimeout(()=>{delete b.dataset.arm;b.textContent='Delete this profile'},3000);return}
+  delete b.dataset.arm;b.textContent='Delete this profile';
+  P.profiles.splice(P.cur,1);P.cur=Math.min(P.cur,P.profiles.length-1);Object.assign(P,P.profiles[P.cur]);
+  store.set('cq_pay',P);loadProfUI();toast('Profile deleted')};
+$('#pDone').onclick=()=>{$('#pDet').open=false;window.scrollTo(0,0)};
+async function exportCard(mode,btn){
+  if(!P.pa){toast('Add your UPI ID first');$('#pDet').open=true;return}
+  tick();
+  await drawCard();$('#card').toBlob(b=>{output(b,'pay_'+(P.sel||'any')+'_'+Date.now()+'.png',mode);if(b)flash(btn,mode==='save'?'✓ Saved':'✓ Shared')},'image/png');
+}
+async function showQR(){
+  if(!P.pa){toast('Add your UPI ID first');$('#pDet').open=true;return}
+  tick();await drawCard();
+  $('#showImg').src=$('#card').toDataURL('image/png');
+  $('#show').classList.add('on');
+  try{NA&&NA.setBright&&NA.setBright(true)}catch(e){}
+}
+function closeShow(){$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}}
+$('#pShow').onclick=showQR;
+$('#show').onclick=closeShow;
+window.__back=()=>{if($('#show').classList.contains('on')){closeShow();return true}return false};
 $('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
-$('#pSave').onclick=()=>exportCard('save');
-$('#pShare').onclick=()=>exportCard('share');
+$('#pSave').onclick=()=>exportCard('save',$('#pSave'));
+$('#pShare').onclick=()=>exportCard('share',$('#pShare'));
 
 /* ---------- tabs + init ---------- */
 function tab(t){
@@ -406,7 +468,7 @@ function tab(t){
   store.set('cq_tab',t);window.scrollTo(0,0);if(t==='pay')drawCard();
 }
 $$('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
-renderTypes();syncUI();renderAmts();syncPayLogo();
+renderTypes();syncUI();renderAmts();syncPayLogo();syncSub();renderProf();
 $('#pDet').open=!P.pa;
 upd();
 tab(store.get('cq_tab')||'gen');
