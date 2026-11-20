@@ -104,6 +104,22 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
 .cf{position:absolute;left:50%;top:36%;width:9px;height:9px;border-radius:2px;opacity:0;animation:cf .95s .2s ease-out forwards}
 @keyframes cf{0%{transform:translate(0,0) scale(.4);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(260deg) scale(1);opacity:0}}
 .pl{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid rgba(40,50,120,.1);font-size:14px}
+#setBtn{display:none;position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 54px);width:44px;height:44px;border-radius:50%;border:0;z-index:15;
+  align-items:center;justify-content:center;color:var(--ink);background:rgba(255,255,255,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 14px rgba(40,50,120,.18)}
+body[data-tab=alerts] #setBtn{display:flex}
+#setBtn:active{transform:scale(.92)}
+#sheet{position:fixed;inset:0;z-index:40;display:none;background:rgba(10,14,40,.35)}
+#sheet.on{display:flex;align-items:flex-end}
+.sp{width:100%;background:#fafbff;border-radius:24px 24px 0 0;padding:8px 20px calc(env(safe-area-inset-bottom,0px) + 16px);animation:up .24s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.grab{width:40px;height:4px;border-radius:9px;background:#cdd2ee;margin:4px auto 6px}
+.srw{display:flex;justify-content:space-between;align-items:center;padding:16px 2px;border-top:1px solid rgba(40,50,120,.1);font-size:16px;color:var(--ink)}
+.grab+.srw{border-top:0}
+.srw em{font-style:normal;font-weight:600}.srw i{font-style:normal;color:var(--mute);font-size:20px}
+.srw input[type=checkbox]{-webkit-appearance:none;appearance:none;width:48px;height:28px;border-radius:99px;background:#cdd2ee;position:relative;transition:background .2s;flex:none;margin:0}
+.srw input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.srw input[type=checkbox]:checked{background:var(--action)}
+.srw input[type=checkbox]:checked::after{transform:translateX(20px)}
 .pl b{color:#16a34a;white-space:nowrap}.pl span{color:var(--mute);font-size:12px;white-space:nowrap}
 </style>
 </head>
@@ -219,26 +235,25 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
   <h1>Alerts</h1>
   <div class="card" style="margin-bottom:12px">
     <div class="srow"><b>Payments received</b><button class="chip" id="plClr">Clear</button></div>
-    <div class="ssub" id="plTot">₹0 aaj</div>
+    <div class="ssub" id="plTot"></div>
     <div id="plList"></div>
-    <div class="sw"><span>Awaaz (voice) ON</span><input type="checkbox" id="oVoice"></div>
-    <div class="row" style="margin-top:10px"><button class="btn alt" id="plTest">Test Show effect</button></div>
-    <div class="hint">Abhi sirf Paytm ki "Received ₹X from Naam" notification se detect hota hai. Test button asli payment nahi karta.</div>
   </div>
   <div class="card">
-    <div class="srow"><b>Notification access</b><span id="nStat" class="edit">...</span></div>
-    <div class="hint">Payment aane par Paytm/bank ki notification padhne ke liye ON karo. Sirf ₹ / received / credited jaisi notifications is phone pe log hoti hain, kahin upload nahi hoti.</div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="nEnable">Enable access</button><button class="btn alt" id="nInfo">App info</button><button class="btn alt" id="nBat">Battery</button><button class="btn alt" id="nRe">Reconnect</button></div>
-    <div class="hint" id="nDiag" style="margin-top:10px"></div>
-    <div class="sw"><span>Debug: sab notifications log karo</span><input type="checkbox" id="nAll"></div>
-    <div class="hint">Debug sirf test ke liye. Test ke baad OFF karke Clear dabana.</div>
-    <div class="hint">Android 13+ pe Enable greyed ho to: App info → ⋮ → "Allow restricted settings", phir Enable. Battery me Chaman QR aur Paytm ko "No restriction" karo.</div>
-  </div>
-  <div class="card" style="margin-top:12px">
-    <div class="srow"><b>Log (last 50)</b><button class="chip" id="nClr">Clear</button></div>
+    <div class="srow"><b>Log</b><button class="chip" id="nClr">Clear</button></div>
     <div id="nLog"></div>
   </div>
 </section>
+<button id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+<div id="sheet"><div class="sp">
+  <div class="grab"></div>
+  <div class="srw" id="sAccess"><span>Notification access</span><em id="sAccV"></em></div>
+  <div class="srw" id="sInfo"><span>App info</span><i>›</i></div>
+  <div class="srw" id="sBat"><span>Battery</span><i>›</i></div>
+  <div class="srw" id="sRe"><span>Reconnect</span><em id="sConn"></em></div>
+  <label class="srw"><span>Awaaz</span><input type="checkbox" id="oVoice"></label>
+  <label class="srw"><span>Debug log</span><input type="checkbox" id="nAll"></label>
+  <div class="srw" id="plTest"><span>Test Show effect</span><i>›</i></div>
+</div></div>
 
 <nav data-tab="gen">
   <button data-t="gen">Generator</button>
@@ -518,7 +533,7 @@ async function showQR(){
 function closeShow(){unflip();$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}}
 $('#pShow').onclick=showQR;
 $('#show').onclick=()=>{if($('#flip').classList.contains('flipped'))unflip();else closeShow()};
-window.__back=()=>{if($('#flip').classList.contains('flipped')){unflip();return true}if($('#show').classList.contains('on')){closeShow();return true}return false};
+window.__back=()=>{if($('#sheet').classList.contains('on')){$('#sheet').classList.remove('on');return true}if($('#flip').classList.contains('flipped')){unflip();return true}if($('#show').classList.contains('on')){closeShow();return true}return false};
 
 /* ---------- payment received: effect + voice + history ---------- */
 const fmtAmt=a=>Number.isInteger(a)?a.toLocaleString('en-IN'):a.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -531,7 +546,7 @@ function burst(){const f=$('#okFace');f.querySelectorAll('.cf').forEach(n=>n.rem
     s.style.setProperty('--dx',Math.cos(a)*d+'px');s.style.setProperty('--dy',Math.sin(a)*d+'px');s.style.background=['#fff','#fde047','#86efac','#bef264'][i%4];f.appendChild(s)}}
 function showOk(e,match){
   const f=$('#okFace');
-  $('#okAmt').textContent='₹'+fmtAmt(e.amt);$('#okFrom').textContent='from '+e.name;
+  $('#okAmt').textContent='₹'+fmtAmt(e.amt);$('#okFrom').textContent=e.name?'from '+e.name:'';
   $('#okNote').textContent=match?'':'QR ₹'+fmtAmt(P.sel)+' ka tha, amount alag aaya';
   f.classList.toggle('warn',!match);
   f.classList.remove('go');void f.offsetWidth;f.classList.add('go');burst();
@@ -543,9 +558,9 @@ function payEvent(e){
   if(Date.now()-e.t>45000)return;            /* purani payment: sirf history me */
   const match=P.sel==null||Math.abs(P.sel-e.amt)<0.005;
   tick();setTimeout(tick,140);
-  if(opts.voice&&NA&&NA.speak){try{NA.speak('Received '+speakAmt(e.amt)+' from '+e.name)}catch(x){}}
+  if(opts.voice&&NA&&NA.speak){try{NA.speak('Received '+speakAmt(e.amt)+(e.name?' from '+e.name:''))}catch(x){}}
   if($('#show').classList.contains('on'))showOk(e,match);
-  else toast('✓ ₹'+fmtAmt(e.amt)+' received from '+e.name);
+  else toast('✓ ₹'+fmtAmt(e.amt)+' received'+(e.name?' from '+e.name:''));
   if($('nav').dataset.tab==='alerts')notifRefresh();
 }
 let lastPayT=(()=>{const v=store.get('cq_lastpay');return typeof v==='number'?v:Date.now()})();
@@ -561,13 +576,14 @@ function renderPay(){
   let a=[];try{a=JSON.parse(NA.payHistory())}catch(e){}
   a.sort((x,y)=>y.t-x.t);
   const d0=new Date();d0.setHours(0,0,0,0);const td=a.filter(e=>e.t>=d0.getTime());
-  $('#plTot').textContent='₹'+fmtAmt(td.reduce((s,e)=>s+e.amt,0))+' aaj · '+td.length+' payment'+(td.length===1?'':'s');
-  $('#plList').innerHTML=a.slice(0,20).map(e=>`<div class="pl"><div><b>+₹${esc(fmtAmt(e.amt))}</b> ${esc(e.name)}</div><span>${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('')||'<div class="hint">Abhi koi payment nahi aayi.</div>';
+  $('#plTot').textContent='₹'+fmtAmt(td.reduce((s,e)=>s+e.amt,0))+' aaj · '+td.length;
+  const tm=t=>new Date(t).toLocaleString('en-IN',t>=d0.getTime()?{hour:'2-digit',minute:'2-digit'}:{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  $('#plList').innerHTML=a.slice(0,20).map(e=>`<div class="pl"><div><b>+₹${esc(fmtAmt(e.amt))}</b> ${esc(e.name||'UPI payment')}</div><span>${esc((e.app?e.app+' · ':'')+tm(e.t))}</span></div>`).join('');
 }
 $('#oVoice').checked=!!opts.voice;
 $('#oVoice').onchange=e=>{opts.voice=e.target.checked;store.set('cq_opts',opts)};
 $('#plClr').onclick=()=>{try{NA&&NA.clearPay()}catch(e){}renderPay()};
-$('#plTest').onclick=async()=>{tab('pay');await showQR();if(!$('#show').classList.contains('on'))return;setTimeout(()=>payEvent({t:Date.now(),amt:P.sel||12,name:'Test Customer'}),1200)};
+$('#plTest').onclick=async()=>{$('#sheet').classList.remove('on');tab('pay');await showQR();if(!$('#show').classList.contains('on'))return;setTimeout(()=>payEvent({t:Date.now(),amt:P.sel||12,name:'Test Customer'}),1200)};
 $('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
 $('#pSave').onclick=()=>exportCard('save',$('#pSave'));
 $('#pShare').onclick=()=>exportCard('share',$('#pShare'));
@@ -575,27 +591,31 @@ $('#pShare').onclick=()=>exportCard('share',$('#pShare'));
 /* ---------- alerts (notification log) ---------- */
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function notifRefresh(){
-  const st=$('#nStat');
-  if(!NA||!NA.notifAccess){st.textContent='APK only';$('#nLog').innerHTML='<div class="hint">Ye feature sirf APK me chalta hai.</div>';return}
+  if(!NA||!NA.notifAccess)return;
   try{renderPay()}catch(e){}
   let on=false;try{on=NA.notifAccess()}catch(e){}
-  st.textContent=on?'● ON':'○ OFF';st.style.color=on?'#16a34a':'#dc2626';$('#nEnable').style.display=on?'none':'';
+  const av=$('#sAccV');av.textContent=on?'ON':'OFF';av.style.color=on?'#16a34a':'#dc2626';
   let s={};try{s=JSON.parse(NA.notifStatus())}catch(e){}
-  $('#nDiag').textContent='Service: '+(s.conn?'connected ✓':'not connected ✗')+' · seen: '+(s.seen||0)+' · last: '+(s.lastPkg?s.lastPkg+' ('+new Date(s.lastT).toLocaleTimeString('en-IN')+')':'none');
+  const cv=$('#sConn');cv.textContent=s.conn?'Connected':'Not connected';cv.style.color=s.conn?'#16a34a':'#dc2626';
   if($('#nAll')!==document.activeElement)$('#nAll').checked=!!s.all;
   let a=[];try{a=JSON.parse(NA.notifLog())}catch(e){}
-  $('#nLog').innerHTML=a.length?a.slice().reverse().map(e=>`<div class="nl"><div class="t">${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}))} · ${esc(e.pkg)}</div><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join(''):'<div class="hint">Abhi koi payment notification nahi aayi.</div>';
+  $('#nLog').innerHTML=a.slice().reverse().map(e=>`<div class="nl"><div class="t">${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}))} · ${esc(e.pkg)}</div><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join('');
 }
 let nT;
-$('#nEnable').onclick=()=>NA&&NA.openNotifSettings&&NA.openNotifSettings();
-$('#nInfo').onclick=()=>NA&&NA.openAppInfo&&NA.openAppInfo();
-$('#nBat').onclick=()=>NA&&NA.openBattery&&NA.openBattery();
-$('#nRe').onclick=()=>{try{NA&&NA.rebindNotif()}catch(e){}toast('Reconnecting...');setTimeout(notifRefresh,800)};
+const sheet=$('#sheet');
+const openSheet=()=>{tick();notifRefresh();sheet.classList.add('on')},closeSheet=()=>sheet.classList.remove('on');
+$('#setBtn').onclick=openSheet;
+sheet.onclick=e=>{if(e.target===sheet)closeSheet()};
+$('#sAccess').onclick=()=>NA&&NA.openNotifSettings&&NA.openNotifSettings();
+$('#sInfo').onclick=()=>NA&&NA.openAppInfo&&NA.openAppInfo();
+$('#sBat').onclick=()=>NA&&NA.openBattery&&NA.openBattery();
+$('#sRe').onclick=()=>{try{NA&&NA.rebindNotif()}catch(e){}setTimeout(notifRefresh,800)};
 $('#nAll').onchange=e=>{try{NA&&NA.setNotifAll(e.target.checked)}catch(x){}};
 $('#nClr').onclick=()=>{try{NA&&NA.clearNotifLog()}catch(e){}notifRefresh()};
 
 /* ---------- tabs + init ---------- */
 function tab(t){
+  document.body.dataset.tab=t;closeSheet();
   $('nav').dataset.tab=t;$$('.sec').forEach(s=>s.classList.toggle('on',s.id===t));
   store.set('cq_tab',t);window.scrollTo(0,0);if(t==='pay')drawCard();
   clearInterval(nT);if(t==='alerts'){notifRefresh();nT=setInterval(notifRefresh,2000)}

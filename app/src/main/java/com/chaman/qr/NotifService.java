@@ -24,9 +24,41 @@ public class NotifService extends NotificationListenerService {
     static final String K_ALL = "notif_all";
     static final String K_PAY = "pay_events";
     static final String PAYTM_PKG = "net.one97.paytm";
+    static final String PHONEPE_PKG = "com.phonepe.app";
     private static final int MAX = 50;
-    private static final Pattern RECV = Pattern.compile(
-            "(?i)^\\s*received\\s*(?:\u20b9|rs\\.?|inr)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s+from\\s+(.+?)\\s*$");
+    private static final Pattern SKIP = Pattern.compile("(?i)refund|cashback|reward|scratch|coupon|request");
+    private static final String CUR = "(?:\u20b9|rs\\.?|inr)\\s*";
+    private static final String AMT = "([0-9][0-9,]*(?:\\.[0-9]{1,2})?)";
+    private static final String END = "(?=\\s*$|\\s+(?:on|via|using|in|at|ref|upi)\\b|[.,|(])";
+    private static final Pattern[] PAY_PATS = {
+            Pattern.compile("(?i)\\breceived\\s*" + CUR + AMT + "\\s+from\\s+(.+?)" + END),
+            Pattern.compile("(?i)(?<![a-z])" + CUR + AMT + "\\s+(?:has\\s+been\\s+)?received\\s+from\\s+(.+?)" + END),
+            Pattern.compile("(?i)^(.+?)\\s+(?:has\\s+)?(?:paid|sent)\\s+you\\s+" + CUR + AMT),
+            Pattern.compile("(?i)\\b(?:payment|money)\\s+received\\b.*?" + CUR + AMT + "\\s+from\\s+(.+?)" + END),
+            Pattern.compile("(?i)\\breceived\\s*" + CUR + AMT),
+    };
+    private static final int[][] PAY_GROUPS = {{1, 2}, {1, 2}, {2, 1}, {1, 2}, {1, 0}}; // {amount group, name group}
+
+    /** Returns {amount, name} or null. Only "received" style messages; refunds/cashback/requests skipped. */
+    static Object[] parsePay(String title, String text) {
+        String all = title + " " + text;
+        if (SKIP.matcher(all).find()) return null;
+        String[] cands = {title, text, all};
+        for (String c : cands) {
+            if (c == null || c.isEmpty()) continue;
+            for (int i = 0; i < PAY_PATS.length; i++) {
+                Matcher m = PAY_PATS[i].matcher(c);
+                if (!m.find()) continue;
+                try {
+                    double amt = Double.parseDouble(m.group(PAY_GROUPS[i][0]).replace(",", ""));
+                    String name = PAY_GROUPS[i][1] > 0 ? m.group(PAY_GROUPS[i][1]).trim() : "";
+                    if (amt > 0) return new Object[]{amt, name};
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return null;
+    }
     private static final Pattern MONEY = Pattern.compile(
             "(?i)(\u20b9|\\brs\\.?\\s?\\d|\\binr\\b|credited|deposited|received|paid|debited)");
 
@@ -74,9 +106,10 @@ public class NotifService extends NotificationListenerService {
                 }
             }
             if (text.isEmpty()) text = str(n.tickerText);
-            if (PAYTM_PKG.equals(sbn.getPackageName())) {
-                Matcher m = RECV.matcher(title);
-                if (m.find()) addPay(Double.parseDouble(m.group(1).replace(",", "")), m.group(2));
+            String pk = sbn.getPackageName();
+            if (PAYTM_PKG.equals(pk) || PHONEPE_PKG.equals(pk)) {
+                Object[] r = parsePay(title, text);
+                if (r != null) addPay((Double) r[0], (String) r[1], PAYTM_PKG.equals(pk) ? "Paytm" : "PhonePe");
             }
             if (!all && !MONEY.matcher(title + " " + text).find()) return;
             append(sbn.getPackageName(), title, text, sbn.getPostTime());
@@ -91,7 +124,7 @@ public class NotifService extends NotificationListenerService {
     }
 
     /** Payment event: only time, amount, sender name (no account digits). */
-    private synchronized void addPay(double amt, String name) throws Exception {
+    private synchronized void addPay(double amt, String name, String app) throws Exception {
         SharedPreferences sp = getSharedPreferences(PREFS, MODE_PRIVATE);
         JSONArray old = new JSONArray(sp.getString(K_PAY, "[]"));
         long now = System.currentTimeMillis();
@@ -101,7 +134,7 @@ public class NotifService extends NotificationListenerService {
                     && now - last.optLong("t") < 8000) return;
         }
         JSONObject o = new JSONObject();
-        o.put("t", now).put("amt", amt).put("name", name);
+        o.put("t", now).put("amt", amt).put("name", name).put("app", app);
         old.put(o);
         JSONArray out = new JSONArray();
         for (int i = Math.max(0, old.length() - 200); i < old.length(); i++) out.put(old.get(i));
