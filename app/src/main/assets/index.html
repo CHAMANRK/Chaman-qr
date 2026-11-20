@@ -104,6 +104,15 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
 .cf{position:absolute;left:50%;top:36%;width:9px;height:9px;border-radius:2px;opacity:0;animation:cf .95s .2s ease-out forwards}
 @keyframes cf{0%{transform:translate(0,0) scale(.4);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(260deg) scale(1);opacity:0}}
 .pl{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid rgba(40,50,120,.1);font-size:14px}
+#qamt{position:fixed;inset:0;z-index:45;background:#f1f4fd;display:none;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px calc(env(safe-area-inset-bottom,0px) + 18px)}
+#qamt.on{display:flex}
+.qaTop{display:flex;align-items:center;gap:12px;color:var(--mute);font-size:15px}
+.qaV{flex:1;display:flex;align-items:center;justify-content:center;font-size:clamp(44px,15vw,72px);font-weight:800;color:var(--ink);word-break:break-all;text-align:center}
+.qaPad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.qaPad button{height:64px;border:0;border-radius:18px;background:#fff;font-size:26px;font-weight:600;color:var(--ink);box-shadow:0 2px 8px rgba(40,50,120,.08);font-family:inherit;transition:transform .1s,background .1s}
+.qaPad button:active{transform:scale(.94);background:#e4e7fb}
+#qaOk{height:60px;font-size:18px;width:100%}
+#qaOk:disabled{opacity:.4}
 #setBtn{display:none;position:fixed;right:16px;top:calc(env(safe-area-inset-top,0px) + 54px);width:44px;height:44px;border-radius:50%;border:0;z-index:15;
   align-items:center;justify-content:center;color:var(--ink);background:rgba(255,255,255,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 14px rgba(40,50,120,.18)}
 body[data-tab=alerts] #setBtn{display:flex}
@@ -260,6 +269,17 @@ body[data-tab=alerts] #setBtn{display:flex}
   <button data-t="pay">Pay QR</button>
   <button data-t="alerts">Alerts</button>
 </nav>
+<div id="qamt">
+  <div class="qaTop"><button class="chip" id="qaX">✕</button><span id="qaWho"></span></div>
+  <div class="qaV" id="qaV">₹ 0</div>
+  <div class="qaPad" id="qaPad">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k=".">.</button><button data-k="0">0</button><button data-k="del">⌫</button>
+  </div>
+  <button class="btn" id="qaOk" disabled>Show</button>
+</div>
 <div id="show">
   <div id="flip">
     <div class="face front"><img id="showImg" alt=""></div>
@@ -530,10 +550,33 @@ async function showQR(){
   $('#show').classList.add('on');
   try{NA&&NA.setBright&&NA.setBright(true)}catch(e){}
 }
-function closeShow(){unflip();$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}}
+let fromQuick=false,prevSel=null,qs='';
+function closeShow(){unflip();$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}
+  if(fromQuick){fromQuick=false;P.sel=prevSel;savePay();renderAmts();drawCard();try{NA&&NA.goHome&&NA.goHome()}catch(e){}}}
+/* ---------- widget: quick amount keypad ---------- */
+const qFmt=()=>{if(!qs)return '0';const[i,d]=qs.split('.');const ii=(+i).toLocaleString('en-IN');return d===undefined?ii:ii+'.'+d};
+const qRender=()=>{$('#qaV').textContent='₹ '+qFmt();$('#qaOk').disabled=!(parseFloat(qs)>0)};
+function openQuick(){
+  if($('#show').classList.contains('on')){fromQuick=false;closeShow()}
+  tab('pay');
+  P.profiles[P.cur]=snap();P.cur=0;Object.assign(P,P.profiles[0]);store.set('cq_pay',P);loadProfUI();
+  if(!P.pa){toast('Pehle UPI ID daalo');$('#pDet').open=true;return}
+  fromQuick=true;prevSel=P.sel;qs='';
+  $('#qaWho').textContent=P.pn||P.pa;qRender();$('#qamt').classList.add('on');
+}
+function quickCancel(){$('#qamt').classList.remove('on');if(fromQuick){fromQuick=false;try{NA&&NA.goHome&&NA.goHome()}catch(e){}}}
+$('#qaX').onclick=quickCancel;
+$('#qaPad').onclick=e=>{const b=e.target.closest('button');if(!b)return;tick();const k=b.dataset.k;
+  if(k==='del')qs=qs.slice(0,-1);
+  else if(k==='.'){if(!qs.includes('.'))qs=(qs||'0')+'.'}
+  else if(qs.includes('.')){if(qs.split('.')[1].length<2)qs+=k}
+  else if(qs.length<7)qs=(qs==='0'?'':qs)+k;
+  qRender()};
+$('#qaOk').onclick=()=>{const a=parseFloat(qs);if(!(a>0))return;P.sel=a;savePay();renderAmts();$('#qamt').classList.remove('on');drawCard();showQR()};
+window.__quickCheck=()=>{if(NA&&NA.takeQuick&&NA.takeQuick())openQuick()};
 $('#pShow').onclick=showQR;
 $('#show').onclick=()=>{if($('#flip').classList.contains('flipped'))unflip();else closeShow()};
-window.__back=()=>{if($('#sheet').classList.contains('on')){$('#sheet').classList.remove('on');return true}if($('#flip').classList.contains('flipped')){unflip();return true}if($('#show').classList.contains('on')){closeShow();return true}return false};
+window.__back=()=>{if($('#qamt').classList.contains('on')){quickCancel();return true}if($('#sheet').classList.contains('on')){$('#sheet').classList.remove('on');return true}if($('#flip').classList.contains('flipped')){unflip();return true}if($('#show').classList.contains('on')){closeShow();return true}return false};
 
 /* ---------- payment received: effect + voice + history ---------- */
 const fmtAmt=a=>Number.isInteger(a)?a.toLocaleString('en-IN'):a.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -565,6 +608,7 @@ function payEvent(e){
 }
 let lastPayT=(()=>{const v=store.get('cq_lastpay');return typeof v==='number'?v:Date.now()})();
 function payPoll(){
+  try{window.__quickCheck()}catch(e){}
   if(!NA||!NA.payEvents)return;
   let a=[];try{a=JSON.parse(NA.payEvents(lastPayT))}catch(e){}
   if(!a.length)return;

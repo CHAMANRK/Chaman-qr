@@ -38,6 +38,23 @@ public class MainActivity extends Activity {
 
     private TextToSpeech tts;
     private boolean ttsOk = false;
+    private volatile boolean quickFlag = false;
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        if (i != null && i.getBooleanExtra("quick", false)) {
+            quickFlag = true;
+            i.removeExtra("quick");
+            kickQuick();
+        }
+    }
+
+    private void kickQuick() {
+        if (web != null)
+            web.post(() -> web.evaluateJavascript("window.__quickCheck&&window.__quickCheck()", null));
+    }
 
     @Override
     protected void onDestroy() {
@@ -48,6 +65,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Intent in0 = getIntent();
+        if (in0 != null && in0.getBooleanExtra("quick", false)) {
+            quickFlag = true;
+            in0.removeExtra("quick");
+        }
         tts = new TextToSpeech(this, st -> {
             if (st == TextToSpeech.SUCCESS) {
                 int r = tts.setLanguage(new Locale("en", "IN"));
@@ -122,9 +144,22 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         rebindListener();
+        if (quickFlag) kickQuick();
     }
 
     private class Bridge {
+        @JavascriptInterface
+        public boolean takeQuick() {
+            boolean q = quickFlag;
+            quickFlag = false;
+            return q;
+        }
+
+        @JavascriptInterface
+        public void goHome() {
+            runOnUiThread(() -> moveTaskToBack(true));
+        }
+
         @JavascriptInterface
         public void speak(final String text) {
             runOnUiThread(() -> {
