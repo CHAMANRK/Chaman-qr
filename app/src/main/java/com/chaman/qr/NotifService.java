@@ -1,6 +1,7 @@
 package com.chaman.qr;
 
 import android.app.Notification;
+import android.content.ComponentName;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
@@ -11,25 +12,64 @@ import org.json.JSONObject;
 
 import java.util.regex.Pattern;
 
-/** Step 1: only logs money-looking notifications (local, on this phone) so we can see the real formats. */
+/** Logs money-looking notifications (local only) so we can see real formats. Has diagnostics counters. */
 public class NotifService extends NotificationListenerService {
     static final String PREFS = "cq";
     static final String KEY = "notif_log";
+    static final String K_CONN = "notif_conn";
+    static final String K_SEEN = "notif_seen";
+    static final String K_LASTPKG = "notif_last_pkg";
+    static final String K_LASTT = "notif_last_t";
+    static final String K_ALL = "notif_all";
     private static final int MAX = 50;
     private static final Pattern MONEY = Pattern.compile(
             "(?i)(\u20b9|\\brs\\.?\\s?\\d|\\binr\\b|credited|deposited|received|paid|debited)");
 
     @Override
+    public void onListenerConnected() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(K_CONN, true).apply();
+    }
+
+    @Override
+    public void onListenerDisconnected() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(K_CONN, false).apply();
+        try {
+            requestRebind(new ComponentName(this, NotifService.class));
+        } catch (Exception ignored) {
+        }
+    }
+
+    @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
             if (sbn == null || getPackageName().equals(sbn.getPackageName())) return;
+            SharedPreferences sp = getSharedPreferences(PREFS, MODE_PRIVATE);
+            sp.edit().putBoolean(K_CONN, true)
+                    .putInt(K_SEEN, sp.getInt(K_SEEN, 0) + 1)
+                    .putString(K_LASTPKG, sbn.getPackageName())
+                    .putLong(K_LASTT, System.currentTimeMillis()).apply();
+
             Notification n = sbn.getNotification();
-            if (n == null || n.extras == null) return;
-            Bundle e = n.extras;
+            if (n == null) return;
+            Bundle e = n.extras != null ? n.extras : new Bundle();
+            boolean all = sp.getBoolean(K_ALL, false);
+            if (all && (n.flags & Notification.FLAG_ONGOING_EVENT) != 0) return;
+
             String title = str(e.getCharSequence(Notification.EXTRA_TITLE));
+            if (title.isEmpty()) title = str(e.getCharSequence(Notification.EXTRA_TITLE_BIG));
             String text = str(e.getCharSequence(Notification.EXTRA_BIG_TEXT));
             if (text.isEmpty()) text = str(e.getCharSequence(Notification.EXTRA_TEXT));
-            if (!MONEY.matcher(title + " " + text).find()) return;
+            if (text.isEmpty()) text = str(e.getCharSequence(Notification.EXTRA_SUB_TEXT));
+            if (text.isEmpty()) {
+                CharSequence[] lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
+                if (lines != null) {
+                    StringBuilder sb = new StringBuilder();
+                    for (CharSequence l : lines) if (l != null) sb.append(l).append(" | ");
+                    text = str(sb);
+                }
+            }
+            if (text.isEmpty()) text = str(n.tickerText);
+            if (!all && !MONEY.matcher(title + " " + text).find()) return;
             append(sbn.getPackageName(), title, text, sbn.getPostTime());
         } catch (Exception ignored) {
         }

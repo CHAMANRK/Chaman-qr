@@ -198,7 +198,10 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
   <div class="card">
     <div class="srow"><b>Notification access</b><span id="nStat" class="edit">...</span></div>
     <div class="hint">Payment aane par Paytm/bank ki notification padhne ke liye ON karo. Sirf ₹ / received / credited jaisi notifications is phone pe log hoti hain, kahin upload nahi hoti.</div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="nEnable">Enable access</button><button class="btn alt" id="nInfo">App info</button><button class="btn alt" id="nBat">Battery</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="nEnable">Enable access</button><button class="btn alt" id="nInfo">App info</button><button class="btn alt" id="nBat">Battery</button><button class="btn alt" id="nRe">Reconnect</button></div>
+    <div class="hint" id="nDiag" style="margin-top:10px"></div>
+    <div class="sw"><span>Debug: sab notifications log karo</span><input type="checkbox" id="nAll"></div>
+    <div class="hint">Debug sirf test ke liye. Test ke baad OFF karke Clear dabana.</div>
     <div class="hint">Android 13+ pe Enable greyed ho to: App info → ⋮ → "Allow restricted settings", phir Enable. Battery me Chaman QR aur Paytm ko "No restriction" karo.</div>
   </div>
   <div class="card" style="margin-top:12px">
@@ -485,6 +488,9 @@ function notifRefresh(){
   if(!NA||!NA.notifAccess){st.textContent='APK only';$('#nLog').innerHTML='<div class="hint">Ye feature sirf APK me chalta hai.</div>';return}
   let on=false;try{on=NA.notifAccess()}catch(e){}
   st.textContent=on?'● ON':'○ OFF';st.style.color=on?'#16a34a':'#dc2626';$('#nEnable').style.display=on?'none':'';
+  let s={};try{s=JSON.parse(NA.notifStatus())}catch(e){}
+  $('#nDiag').textContent='Service: '+(s.conn?'connected ✓':'not connected ✗')+' · seen: '+(s.seen||0)+' · last: '+(s.lastPkg?s.lastPkg+' ('+new Date(s.lastT).toLocaleTimeString('en-IN')+')':'none');
+  if($('#nAll')!==document.activeElement)$('#nAll').checked=!!s.all;
   let a=[];try{a=JSON.parse(NA.notifLog())}catch(e){}
   $('#nLog').innerHTML=a.length?a.slice().reverse().map(e=>`<div class="nl"><div class="t">${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}))} · ${esc(e.pkg)}</div><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join(''):'<div class="hint">Abhi koi payment notification nahi aayi.</div>';
 }
@@ -492,6 +498,8 @@ let nT;
 $('#nEnable').onclick=()=>NA&&NA.openNotifSettings&&NA.openNotifSettings();
 $('#nInfo').onclick=()=>NA&&NA.openAppInfo&&NA.openAppInfo();
 $('#nBat').onclick=()=>NA&&NA.openBattery&&NA.openBattery();
+$('#nRe').onclick=()=>{try{NA&&NA.rebindNotif()}catch(e){}toast('Reconnecting...');setTimeout(notifRefresh,800)};
+$('#nAll').onchange=e=>{try{NA&&NA.setNotifAll(e.target.checked)}catch(x){}};
 $('#nClr').onclick=()=>{try{NA&&NA.clearNotifLog()}catch(e){}notifRefresh()};
 
 /* ---------- tabs + init ---------- */

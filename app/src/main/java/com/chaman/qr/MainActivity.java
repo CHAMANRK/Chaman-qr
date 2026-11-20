@@ -1,6 +1,7 @@
 package com.chaman.qr;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.SharedPreferences;
@@ -11,6 +12,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.service.notification.NotificationListenerService;
 import android.util.Base64;
 import android.view.HapticFeedbackConstants;
 import android.view.WindowManager;
@@ -84,11 +86,49 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, m, Toast.LENGTH_SHORT).show());
     }
 
+    private boolean notifEnabled() {
+        String f = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        return f != null && f.contains(getPackageName());
+    }
+
+    private void rebindListener() {
+        try {
+            if (notifEnabled())
+                NotificationListenerService.requestRebind(new ComponentName(this, NotifService.class));
+        } catch (Exception ignored) {
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        rebindListener();
+    }
+
     private class Bridge {
         @JavascriptInterface
         public boolean notifAccess() {
-            String f = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
-            return f != null && f.contains(getPackageName());
+            return notifEnabled();
+        }
+
+        @JavascriptInterface
+        public String notifStatus() {
+            SharedPreferences sp = getSharedPreferences("cq", MODE_PRIVATE);
+            return "{\"conn\":" + sp.getBoolean("notif_conn", false)
+                    + ",\"seen\":" + sp.getInt("notif_seen", 0)
+                    + ",\"all\":" + sp.getBoolean("notif_all", false)
+                    + ",\"lastT\":" + sp.getLong("notif_last_t", 0)
+                    + ",\"lastPkg\":\"" + sp.getString("notif_last_pkg", "").replace("\"", "") + "\"}";
+        }
+
+        @JavascriptInterface
+        public void setNotifAll(boolean on) {
+            getSharedPreferences("cq", MODE_PRIVATE).edit().putBoolean("notif_all", on).apply();
+        }
+
+        @JavascriptInterface
+        public void rebindNotif() {
+            rebindListener();
         }
 
         @JavascriptInterface

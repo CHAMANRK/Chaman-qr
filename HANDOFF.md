@@ -30,7 +30,8 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 - Backup tabhi likhna jab UPI ID bhara ho (khali data se purana backup overwrite na ho)
 
 ## Status
-- v0.4: (device test pending) Step 1 notification listener + Alerts tab
+- v0.5: (device test pending) Step 1 fix: v0.4 pe access ON tha par Paytm notification log nahi hui. Added diagnostics (service connected, seen count, last pkg), Reconnect/auto rebind on resume, Debug 'log all', wider text extraction
+- v0.4: Step 1 notification listener + Alerts tab (device test fail: log empty)
 - v0.3: (device test pending)
   - Pay QR: Show full-screen + brightness, collapsed details + Edit, multiple profiles, haptic + pop animation, Saved tick
   - CI: public GitHub Release `latest` with chaman-qr.apk
