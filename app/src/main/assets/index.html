@@ -52,16 +52,17 @@ details summary::-webkit-details-marker{display:none}
 .logorow img{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#e4e8fa}
 /* glass pill nav */
 nav{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);
-  width:min(330px,90vw);height:58px;border-radius:999px;display:grid;grid-template-columns:1fr 1fr;padding:5px;z-index:20;
+  width:min(390px,92vw);height:58px;border-radius:999px;display:grid;grid-template-columns:1fr 1fr 1fr;padding:5px;z-index:20;
   background:rgba(255,255,255,.55);
   background:color-mix(in srgb,#fff 55%,transparent);
   backdrop-filter:blur(18px) saturate(1.7);-webkit-backdrop-filter:blur(18px) saturate(1.7);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(40,50,120,.08),0 10px 30px rgba(40,50,120,.2)}
-nav::after{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:999px;
+nav::after{content:"";position:absolute;top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/3);border-radius:999px;
   background:var(--action);box-shadow:0 4px 14px rgba(59,76,224,.45);transition:transform .32s cubic-bezier(.3,1.3,.5,1);z-index:0}
-nav[data-tab=pay]::after{transform:translateX(100%)}
+nav[data-tab=pay]::after{transform:translateX(100%)}nav[data-tab=alerts]::after{transform:translateX(200%)}
 nav button{position:relative;z-index:1;border:0;background:none;font:600 14px system-ui;color:var(--mute);transition:color .2s}
-nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:#fff}
+nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[data-tab=alerts] button[data-t=alerts]{color:#fff}
+.nl{padding:10px 0;border-top:1px solid rgba(40,50,120,.1);word-break:break-word}.nl .t{font-size:11px;color:var(--mute)}.nl b{display:block;margin-top:2px}.nl div:last-child{font-size:13px;color:var(--ink)}
 #toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:#1b1f33;color:#fff;padding:10px 16px;
   border-radius:999px;font-size:13px;opacity:0;transition:.25s;z-index:30;pointer-events:none}
 #toast.on{opacity:1;transform:translateX(-50%)}
@@ -192,9 +193,24 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay]{color:
   </div>
 </section>
 
+<section class="sec" id="alerts">
+  <h1>Alerts</h1>
+  <div class="card">
+    <div class="srow"><b>Notification access</b><span id="nStat" class="edit">...</span></div>
+    <div class="hint">Payment aane par Paytm/bank ki notification padhne ke liye ON karo. Sirf ₹ / received / credited jaisi notifications is phone pe log hoti hain, kahin upload nahi hoti.</div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="nEnable">Enable access</button><button class="btn alt" id="nInfo">App info</button><button class="btn alt" id="nBat">Battery</button></div>
+    <div class="hint">Android 13+ pe Enable greyed ho to: App info → ⋮ → "Allow restricted settings", phir Enable. Battery me Chaman QR aur Paytm ko "No restriction" karo.</div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="srow"><b>Log (last 50)</b><button class="chip" id="nClr">Clear</button></div>
+    <div id="nLog"></div>
+  </div>
+</section>
+
 <nav data-tab="gen">
   <button data-t="gen">Generator</button>
   <button data-t="pay">Pay QR</button>
+  <button data-t="alerts">Alerts</button>
 </nav>
 <div id="show"><img id="showImg" alt=""><div class="sh">Tap anywhere to close</div></div>
 <div id="toast"></div>
@@ -462,10 +478,27 @@ $('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
 $('#pSave').onclick=()=>exportCard('save',$('#pSave'));
 $('#pShare').onclick=()=>exportCard('share',$('#pShare'));
 
+/* ---------- alerts (notification log) ---------- */
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function notifRefresh(){
+  const st=$('#nStat');
+  if(!NA||!NA.notifAccess){st.textContent='APK only';$('#nLog').innerHTML='<div class="hint">Ye feature sirf APK me chalta hai.</div>';return}
+  let on=false;try{on=NA.notifAccess()}catch(e){}
+  st.textContent=on?'● ON':'○ OFF';st.style.color=on?'#16a34a':'#dc2626';$('#nEnable').style.display=on?'none':'';
+  let a=[];try{a=JSON.parse(NA.notifLog())}catch(e){}
+  $('#nLog').innerHTML=a.length?a.slice().reverse().map(e=>`<div class="nl"><div class="t">${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}))} · ${esc(e.pkg)}</div><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join(''):'<div class="hint">Abhi koi payment notification nahi aayi.</div>';
+}
+let nT;
+$('#nEnable').onclick=()=>NA&&NA.openNotifSettings&&NA.openNotifSettings();
+$('#nInfo').onclick=()=>NA&&NA.openAppInfo&&NA.openAppInfo();
+$('#nBat').onclick=()=>NA&&NA.openBattery&&NA.openBattery();
+$('#nClr').onclick=()=>{try{NA&&NA.clearNotifLog()}catch(e){}notifRefresh()};
+
 /* ---------- tabs + init ---------- */
 function tab(t){
   $('nav').dataset.tab=t;$$('.sec').forEach(s=>s.classList.toggle('on',s.id===t));
   store.set('cq_tab',t);window.scrollTo(0,0);if(t==='pay')drawCard();
+  clearInterval(nT);if(t==='alerts'){notifRefresh();nT=setInterval(notifRefresh,2000)}
 }
 $$('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 renderTypes();syncUI();renderAmts();syncPayLogo();syncSub();renderProf();

@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.Base64;
 import android.view.HapticFeedbackConstants;
 import android.view.WindowManager;
@@ -84,6 +85,38 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
+        @JavascriptInterface
+        public boolean notifAccess() {
+            String f = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+            return f != null && f.contains(getPackageName());
+        }
+
+        @JavascriptInterface
+        public void openNotifSettings() {
+            runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+        }
+
+        @JavascriptInterface
+        public void openAppInfo() {
+            runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName()))));
+        }
+
+        @JavascriptInterface
+        public void openBattery() {
+            runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)));
+        }
+
+        @JavascriptInterface
+        public String notifLog() {
+            return getSharedPreferences("cq", MODE_PRIVATE).getString("notif_log", "[]");
+        }
+
+        @JavascriptInterface
+        public void clearNotifLog() {
+            getSharedPreferences("cq", MODE_PRIVATE).edit().remove("notif_log").apply();
+        }
+
         @JavascriptInterface
         public void tick() {
             runOnUiThread(() -> web.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP));
