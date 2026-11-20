@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Logs money-looking notifications (local only) so we can see real formats. Has diagnostics counters. */
@@ -21,7 +22,11 @@ public class NotifService extends NotificationListenerService {
     static final String K_LASTPKG = "notif_last_pkg";
     static final String K_LASTT = "notif_last_t";
     static final String K_ALL = "notif_all";
+    static final String K_PAY = "pay_events";
+    static final String PAYTM_PKG = "net.one97.paytm";
     private static final int MAX = 50;
+    private static final Pattern RECV = Pattern.compile(
+            "(?i)^\\s*received\\s*(?:\u20b9|rs\\.?|inr)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s+from\\s+(.+?)\\s*$");
     private static final Pattern MONEY = Pattern.compile(
             "(?i)(\u20b9|\\brs\\.?\\s?\\d|\\binr\\b|credited|deposited|received|paid|debited)");
 
@@ -69,6 +74,10 @@ public class NotifService extends NotificationListenerService {
                 }
             }
             if (text.isEmpty()) text = str(n.tickerText);
+            if (PAYTM_PKG.equals(sbn.getPackageName())) {
+                Matcher m = RECV.matcher(title);
+                if (m.find()) addPay(Double.parseDouble(m.group(1).replace(",", "")), m.group(2));
+            }
             if (!all && !MONEY.matcher(title + " " + text).find()) return;
             append(sbn.getPackageName(), title, text, sbn.getPostTime());
         } catch (Exception ignored) {
@@ -79,6 +88,24 @@ public class NotifService extends NotificationListenerService {
         if (c == null) return "";
         String s = c.toString().trim();
         return s.length() > 300 ? s.substring(0, 300) : s;
+    }
+
+    /** Payment event: only time, amount, sender name (no account digits). */
+    private synchronized void addPay(double amt, String name) throws Exception {
+        SharedPreferences sp = getSharedPreferences(PREFS, MODE_PRIVATE);
+        JSONArray old = new JSONArray(sp.getString(K_PAY, "[]"));
+        long now = System.currentTimeMillis();
+        if (old.length() > 0) {
+            JSONObject last = old.getJSONObject(old.length() - 1);
+            if (last.optString("name").equals(name) && Math.abs(last.optDouble("amt") - amt) < 0.001
+                    && now - last.optLong("t") < 8000) return;
+        }
+        JSONObject o = new JSONObject();
+        o.put("t", now).put("amt", amt).put("name", name);
+        old.put(o);
+        JSONArray out = new JSONArray();
+        for (int i = Math.max(0, old.length() - 200); i < old.length(); i++) out.put(old.get(i));
+        sp.edit().putString(K_PAY, out.toString()).apply();
     }
 
     private synchronized void append(String pkg, String title, String text, long t) throws Exception {

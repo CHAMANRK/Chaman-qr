@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
 import android.service.notification.NotificationListenerService;
 import android.util.Base64;
 import android.view.HapticFeedbackConstants;
@@ -28,15 +29,33 @@ import androidx.core.content.FileProvider;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int REQ_FILE = 1;
     private WebView web;
     private ValueCallback<Uri[]> fileCb;
 
+    private TextToSpeech tts;
+    private boolean ttsOk = false;
+
+    @Override
+    protected void onDestroy() {
+        if (tts != null) tts.shutdown();
+        super.onDestroy();
+    }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        tts = new TextToSpeech(this, st -> {
+            if (st == TextToSpeech.SUCCESS) {
+                int r = tts.setLanguage(new Locale("en", "IN"));
+                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED)
+                    tts.setLanguage(Locale.US);
+                ttsOk = true;
+            }
+        });
         web = new WebView(this);
         web.setBackgroundColor(0xFFEEF1FB);
         setContentView(web);
@@ -106,6 +125,37 @@ public class MainActivity extends Activity {
     }
 
     private class Bridge {
+        @JavascriptInterface
+        public void speak(final String text) {
+            runOnUiThread(() -> {
+                if (ttsOk && tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "pay");
+            });
+        }
+
+        @JavascriptInterface
+        public String payEvents(long since) {
+            try {
+                org.json.JSONArray all = new org.json.JSONArray(
+                        getSharedPreferences("cq", MODE_PRIVATE).getString("pay_events", "[]"));
+                org.json.JSONArray out = new org.json.JSONArray();
+                for (int i = 0; i < all.length(); i++)
+                    if (all.getJSONObject(i).optLong("t") > since) out.put(all.get(i));
+                return out.toString();
+            } catch (Exception e) {
+                return "[]";
+            }
+        }
+
+        @JavascriptInterface
+        public String payHistory() {
+            return getSharedPreferences("cq", MODE_PRIVATE).getString("pay_events", "[]");
+        }
+
+        @JavascriptInterface
+        public void clearPay() {
+            getSharedPreferences("cq", MODE_PRIVATE).edit().remove("pay_events").apply();
+        }
+
         @JavascriptInterface
         public boolean notifAccess() {
             return notifEnabled();

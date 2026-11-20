@@ -81,8 +81,30 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
 .chip.add{border-style:dashed;color:var(--action)}
 #show{position:fixed;inset:0;background:#f1f4fd;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column}
 #show.on{display:flex}
-#show img{max-width:100vw;max-height:calc(100vh - 44px);object-fit:contain}
-#show .sh{font-size:12px;color:var(--mute);padding:10px}
+#show{perspective:1400px;transition:background .3s}
+#show.ok{background:#0b5d2b}
+#flip{position:relative;width:min(100vw,calc((100vh - 44px)*0.72));aspect-ratio:1080/1500;transform-style:preserve-3d;transition:transform .34s cubic-bezier(.3,1.25,.5,1)}
+#flip.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:20px;overflow:hidden}
+.face.front img{width:100%;height:100%;object-fit:contain;display:block}
+.face.back{transform:rotateY(180deg);background:linear-gradient(160deg,#22c55e,#0f7a3a);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:24px}
+.face.back.warn{background:linear-gradient(160deg,#f59e0b,#b45309)}
+#show .sh{font-size:12px;color:var(--mute);padding:10px;transition:color .3s}
+#show.ok .sh{color:#bbf7d0}
+.tick{width:30%;max-width:130px;margin-bottom:10px}
+.tick circle{stroke-dasharray:152;stroke-dashoffset:152}.tick path{stroke-dasharray:40;stroke-dashoffset:40}
+.go .tick circle{animation:dr .4s .12s forwards}.go .tick path{animation:dr .3s .38s forwards}
+@keyframes dr{to{stroke-dashoffset:0}}
+.okT{font-size:clamp(20px,6vw,30px);font-weight:600;opacity:.9}
+.okAmt{font-size:clamp(56px,22vw,130px);font-weight:800;line-height:1.05}
+.go .okAmt{animation:pop2 .45s .2s both}
+@keyframes pop2{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+.okFrom{font-size:clamp(22px,7vw,36px);font-weight:600;word-break:break-word;max-width:92%}
+.okNote{font-size:15px;opacity:.95;margin-top:6px}
+.cf{position:absolute;left:50%;top:36%;width:9px;height:9px;border-radius:2px;opacity:0;animation:cf .95s .2s ease-out forwards}
+@keyframes cf{0%{transform:translate(0,0) scale(.4);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(260deg) scale(1);opacity:0}}
+.pl{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid rgba(40,50,120,.1);font-size:14px}
+.pl b{color:#16a34a;white-space:nowrap}.pl span{color:var(--mute);font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -195,6 +217,14 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
 
 <section class="sec" id="alerts">
   <h1>Alerts</h1>
+  <div class="card" style="margin-bottom:12px">
+    <div class="srow"><b>Payments received</b><button class="chip" id="plClr">Clear</button></div>
+    <div class="ssub" id="plTot">₹0 aaj</div>
+    <div id="plList"></div>
+    <div class="sw"><span>Awaaz (voice) ON</span><input type="checkbox" id="oVoice"></div>
+    <div class="row" style="margin-top:10px"><button class="btn alt" id="plTest">Test Show effect</button></div>
+    <div class="hint">Abhi sirf Paytm ki "Received ₹X from Naam" notification se detect hota hai. Test button asli payment nahi karta.</div>
+  </div>
   <div class="card">
     <div class="srow"><b>Notification access</b><span id="nStat" class="edit">...</span></div>
     <div class="hint">Payment aane par Paytm/bank ki notification padhne ke liye ON karo. Sirf ₹ / received / credited jaisi notifications is phone pe log hoti hain, kahin upload nahi hoti.</div>
@@ -215,7 +245,19 @@ nav[data-tab=gen] button[data-t=gen],nav[data-tab=pay] button[data-t=pay],nav[da
   <button data-t="pay">Pay QR</button>
   <button data-t="alerts">Alerts</button>
 </nav>
-<div id="show"><img id="showImg" alt=""><div class="sh">Tap anywhere to close</div></div>
+<div id="show">
+  <div id="flip">
+    <div class="face front"><img id="showImg" alt=""></div>
+    <div class="face back" id="okFace">
+      <svg class="tick" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="#fff" stroke-width="3"/><path d="M14 27l8 8 16-17" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="okT">Received</div>
+      <div class="okAmt" id="okAmt"></div>
+      <div class="okFrom" id="okFrom"></div>
+      <div class="okNote" id="okNote"></div>
+    </div>
+  </div>
+  <div class="sh" id="showHint">Tap anywhere to close</div>
+</div>
 <div id="toast"></div>
 <input type="file" id="file" accept="image/*" hidden>
 <input type="file" id="fileJson" accept=".json,application/json" hidden>
@@ -473,10 +515,59 @@ async function showQR(){
   $('#show').classList.add('on');
   try{NA&&NA.setBright&&NA.setBright(true)}catch(e){}
 }
-function closeShow(){$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}}
+function closeShow(){unflip();$('#show').classList.remove('on');try{NA&&NA.setBright&&NA.setBright(false)}catch(e){}}
 $('#pShow').onclick=showQR;
-$('#show').onclick=closeShow;
-window.__back=()=>{if($('#show').classList.contains('on')){closeShow();return true}return false};
+$('#show').onclick=()=>{if($('#flip').classList.contains('flipped'))unflip();else closeShow()};
+window.__back=()=>{if($('#flip').classList.contains('flipped')){unflip();return true}if($('#show').classList.contains('on')){closeShow();return true}return false};
+
+/* ---------- payment received: effect + voice + history ---------- */
+const fmtAmt=a=>Number.isInteger(a)?a.toLocaleString('en-IN'):a.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+function speakAmt(a){const r=Math.floor(a),p=Math.round((a-r)*100);return r+' rupees'+(p?' '+p+' paise':'')}
+let opts=Object.assign({voice:true},store.get('cq_opts')||{});
+let okT;
+function unflip(){clearTimeout(okT);$('#flip').classList.remove('flipped');$('#show').classList.remove('ok');$('#showHint').textContent='Tap anywhere to close'}
+function burst(){const f=$('#okFace');f.querySelectorAll('.cf').forEach(n=>n.remove());
+  for(let i=0;i<24;i++){const s=document.createElement('i');s.className='cf';const a=Math.random()*6.283,d=110+Math.random()*190;
+    s.style.setProperty('--dx',Math.cos(a)*d+'px');s.style.setProperty('--dy',Math.sin(a)*d+'px');s.style.background=['#fff','#fde047','#86efac','#bef264'][i%4];f.appendChild(s)}}
+function showOk(e,match){
+  const f=$('#okFace');
+  $('#okAmt').textContent='₹'+fmtAmt(e.amt);$('#okFrom').textContent='from '+e.name;
+  $('#okNote').textContent=match?'':'QR ₹'+fmtAmt(P.sel)+' ka tha, amount alag aaya';
+  f.classList.toggle('warn',!match);
+  f.classList.remove('go');void f.offsetWidth;f.classList.add('go');burst();
+  $('#show').classList.add('ok');$('#showHint').textContent='Tap to go back to QR';
+  $('#flip').classList.add('flipped');
+  clearTimeout(okT);okT=setTimeout(unflip,12000);
+}
+function payEvent(e){
+  if(Date.now()-e.t>45000)return;            /* purani payment: sirf history me */
+  const match=P.sel==null||Math.abs(P.sel-e.amt)<0.005;
+  tick();setTimeout(tick,140);
+  if(opts.voice&&NA&&NA.speak){try{NA.speak('Received '+speakAmt(e.amt)+' from '+e.name)}catch(x){}}
+  if($('#show').classList.contains('on'))showOk(e,match);
+  else toast('✓ ₹'+fmtAmt(e.amt)+' received from '+e.name);
+  if($('nav').dataset.tab==='alerts')notifRefresh();
+}
+let lastPayT=(()=>{const v=store.get('cq_lastpay');return typeof v==='number'?v:Date.now()})();
+function payPoll(){
+  if(!NA||!NA.payEvents)return;
+  let a=[];try{a=JSON.parse(NA.payEvents(lastPayT))}catch(e){}
+  if(!a.length)return;
+  a.sort((x,y)=>x.t-y.t);a.forEach(payEvent);
+  lastPayT=a[a.length-1].t;store.set('cq_lastpay',lastPayT);
+}
+setInterval(payPoll,600);
+function renderPay(){
+  let a=[];try{a=JSON.parse(NA.payHistory())}catch(e){}
+  a.sort((x,y)=>y.t-x.t);
+  const d0=new Date();d0.setHours(0,0,0,0);const td=a.filter(e=>e.t>=d0.getTime());
+  $('#plTot').textContent='₹'+fmtAmt(td.reduce((s,e)=>s+e.amt,0))+' aaj · '+td.length+' payment'+(td.length===1?'':'s');
+  $('#plList').innerHTML=a.slice(0,20).map(e=>`<div class="pl"><div><b>+₹${esc(fmtAmt(e.amt))}</b> ${esc(e.name)}</div><span>${esc(new Date(e.t).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('')||'<div class="hint">Abhi koi payment nahi aayi.</div>';
+}
+$('#oVoice').checked=!!opts.voice;
+$('#oVoice').onchange=e=>{opts.voice=e.target.checked;store.set('cq_opts',opts)};
+$('#plClr').onclick=()=>{try{NA&&NA.clearPay()}catch(e){}renderPay()};
+$('#plTest').onclick=async()=>{tab('pay');await showQR();if(!$('#show').classList.contains('on'))return;setTimeout(()=>payEvent({t:Date.now(),amt:P.sel||12,name:'Test Customer'}),1200)};
 $('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
 $('#pSave').onclick=()=>exportCard('save',$('#pSave'));
 $('#pShare').onclick=()=>exportCard('share',$('#pShare'));
@@ -486,6 +577,7 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 function notifRefresh(){
   const st=$('#nStat');
   if(!NA||!NA.notifAccess){st.textContent='APK only';$('#nLog').innerHTML='<div class="hint">Ye feature sirf APK me chalta hai.</div>';return}
+  try{renderPay()}catch(e){}
   let on=false;try{on=NA.notifAccess()}catch(e){}
   st.textContent=on?'● ON':'○ OFF';st.style.color=on?'#16a34a':'#dc2626';$('#nEnable').style.display=on?'none':'';
   let s={};try{s=JSON.parse(NA.notifStatus())}catch(e){}

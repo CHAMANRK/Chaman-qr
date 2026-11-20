@@ -20,8 +20,14 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 ## Payment detect plan (concept agreed)
 - Primary: Paytm notification (PhonePe notification late aati hai). Paytm UPI ID @ptyes (profile se add hota hai, koi code limit nahi)
 - Seen format (Paytm): title "Received ₹<amt> from <name>", text "Deposited in your <bank> - <last4> on <date> at <time>"
-- Step 1: notification log (v0.4). Step 2: SMS (READ/RECEIVE_SMS, Ref no.). Step 3: match amount in ~5 min window + green screen + awaaz, dedupe by amount+time/Ref
+- Done: notification log (v0.5), parse + Show-mode effect + voice + history (v0.6)
+- Next: SMS backup (bank credit SMS ka real format chahiye), PhonePe notification package/format (log se verify), background announce (foreground service)
 - Package names log se verify karne hain, guess nahi
+
+## Setup zaruri (Android 15+/ColorOS) - notification text ke liye
+- Android 15+ 'sensitive' notification ka text hide karta hai ('Sensitive notification content hidden'). Fix: Wireless debugging se `adb shell cmd appops set --user 0 com.chaman.qr RECEIVE_SENSITIVE_NOTIFICATIONS allow` (uninstall pe dobara karna padta hai, update pe nahi)
+- ColorOS me adb grant ke liye Developer options me 'Disable system optimisation' (permission monitoring) ON karna pada; grant ke baad OFF karke bhi text asli aata raha (verified)
+- Notification access ON + battery No restriction
 
 ## Rules
 - Keys/tokens/passwords kabhi chat me paste nahi, kabhi file me hardcode nahi
@@ -30,7 +36,8 @@ Android APK (WebView) jo QR generate karta hai + UPI Pay QR card banata hai. Own
 - Backup tabhi likhna jab UPI ID bhara ho (khali data se purana backup overwrite na ho)
 
 ## Status
-- v0.5: (device test pending) Step 1 fix: v0.4 pe access ON tha par Paytm notification log nahi hui. Added diagnostics (service connected, seen count, last pkg), Reconnect/auto rebind on resume, Debug 'log all', wider text extraction
+- v0.6: (device test pending) Paytm 'Received ₹X from NAME' parse -> pay_events; Show mode credit effect (card flip -> green 'Received ₹X from NAME', confetti, auto back 12s); voice (TextToSpeech) + haptic; Alerts: Payments received history + today total + voice toggle + 'Test Show effect' button. Amount mismatch vs QR -> amber face
+- v0.5: device pe pass (Step 1 notification listener) Step 1 fix: v0.4 pe access ON tha par Paytm notification log nahi hui. Added diagnostics (service connected, seen count, last pkg), Reconnect/auto rebind on resume, Debug 'log all', wider text extraction
 - v0.4: Step 1 notification listener + Alerts tab (device test fail: log empty)
 - v0.3: (device test pending)
   - Pay QR: Show full-screen + brightness, collapsed details + Edit, multiple profiles, haptic + pop animation, Saved tick
