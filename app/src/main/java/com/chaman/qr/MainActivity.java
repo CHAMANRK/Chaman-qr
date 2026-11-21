@@ -141,8 +141,16 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onPause() {
+        Announcer.uiVisible = false;
+        super.onPause();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        Announcer.uiVisible = true;
+        Announcer.applyService(this);
         rebindListener();
         if (quickFlag) kickQuick();
     }
@@ -156,6 +164,18 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void applySpeak() {
+            runOnUiThread(() -> {
+                if (Announcer.always(MainActivity.this) && Announcer.fgOn(MainActivity.this)
+                        && android.os.Build.VERSION.SDK_INT >= 33
+                        && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77);
+                Announcer.applyService(MainActivity.this);
+            });
+        }
+
+        @JavascriptInterface
         public void goHome() {
             runOnUiThread(() -> moveTaskToBack(true));
         }
@@ -163,6 +183,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void speak(final String text) {
             runOnUiThread(() -> {
+                if (Announcer.ringer(MainActivity.this) != android.media.AudioManager.RINGER_MODE_NORMAL) return;
                 if (ttsOk && tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "pay");
             });
         }

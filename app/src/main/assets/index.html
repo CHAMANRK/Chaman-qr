@@ -124,6 +124,7 @@ body[data-tab=alerts] #setBtn{display:flex}
 .grab{width:40px;height:4px;border-radius:9px;background:#cdd2ee;margin:4px auto 6px}
 .srw{display:flex;justify-content:space-between;align-items:center;padding:16px 2px;border-top:1px solid rgba(40,50,120,.1);font-size:16px;color:var(--ink)}
 .grab+.srw{border-top:0}
+.srw.sub{padding-left:16px;font-size:14px}.srw.dis{opacity:.4;pointer-events:none}
 .srw em{font-style:normal;font-weight:600}.srw i{font-style:normal;color:var(--mute);font-size:20px}
 .srw input[type=checkbox]{-webkit-appearance:none;appearance:none;width:48px;height:28px;border-radius:99px;background:#cdd2ee;position:relative;transition:background .2s;flex:none;margin:0}
 .srw input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
@@ -260,6 +261,8 @@ body[data-tab=alerts] #setBtn{display:flex}
   <div class="srw" id="sBat"><span>Battery</span><i>›</i></div>
   <div class="srw" id="sRe"><span>Reconnect</span><em id="sConn"></em></div>
   <label class="srw"><span>Awaaz</span><input type="checkbox" id="oVoice"></label>
+  <label class="srw"><span>Always speaks</span><input type="checkbox" id="oAlways"></label>
+  <label class="srw sub" id="rFg"><span>Pakka mode (foreground service)</span><input type="checkbox" id="oFg"></label>
   <label class="srw"><span>Debug log</span><input type="checkbox" id="nAll"></label>
   <div class="srw" id="plTest"><span>Test Show effect</span><i>›</i></div>
 </div></div>
@@ -601,7 +604,7 @@ function payEvent(e){
   if(Date.now()-e.t>45000)return;            /* purani payment: sirf history me */
   const match=P.sel==null||Math.abs(P.sel-e.amt)<0.005;
   tick();setTimeout(tick,140);
-  if(opts.voice&&NA&&NA.speak){try{NA.speak('Received '+speakAmt(e.amt)+(e.name?' from '+e.name:''))}catch(x){}}
+  if(opts.voice&&!e.sp&&document.visibilityState==='visible'&&NA&&NA.speak){try{NA.speak('Received '+speakAmt(e.amt)+(e.name?' from '+e.name:''))}catch(x){}}
   if($('#show').classList.contains('on'))showOk(e,match);
   else toast('✓ ₹'+fmtAmt(e.amt)+' received'+(e.name?' from '+e.name:''));
   if($('nav').dataset.tab==='alerts')notifRefresh();
@@ -626,6 +629,12 @@ function renderPay(){
 }
 $('#oVoice').checked=!!opts.voice;
 $('#oVoice').onchange=e=>{opts.voice=e.target.checked;store.set('cq_opts',opts)};
+function ldF(k){try{return NA&&NA.loadData(k)==='1'}catch(e){return false}}
+function svF(k,v){try{NA&&NA.saveData(k,v?'1':'0');NA.applySpeak&&NA.applySpeak()}catch(e){}}
+function spUi(){$('#oAlways').checked=ldF('always');$('#oFg').checked=ldF('fg');$('#rFg').classList.toggle('dis',!$('#oAlways').checked)}
+$('#oAlways').onchange=e=>{svF('always',e.target.checked);spUi()};
+$('#oFg').onchange=e=>{svF('fg',e.target.checked)};
+spUi();
 $('#plClr').onclick=()=>{try{NA&&NA.clearPay()}catch(e){}renderPay()};
 $('#plTest').onclick=async()=>{$('#sheet').classList.remove('on');tab('pay');await showQR();if(!$('#show').classList.contains('on'))return;setTimeout(()=>payEvent({t:Date.now(),amt:P.sel||12,name:'Test Customer'}),1200)};
 $('#pBk').onclick=manualBackup;$('#pRs').onclick=restoreBackup;
@@ -647,7 +656,7 @@ function notifRefresh(){
 }
 let nT;
 const sheet=$('#sheet');
-const openSheet=()=>{tick();notifRefresh();sheet.classList.add('on')},closeSheet=()=>sheet.classList.remove('on');
+const openSheet=()=>{tick();spUi();notifRefresh();sheet.classList.add('on')},closeSheet=()=>sheet.classList.remove('on');
 $('#setBtn').onclick=openSheet;
 sheet.onclick=e=>{if(e.target===sheet)closeSheet()};
 $('#sAccess').onclick=()=>NA&&NA.openNotifSettings&&NA.openNotifSettings();

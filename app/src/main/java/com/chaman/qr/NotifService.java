@@ -291,6 +291,7 @@ public class NotifService extends NotificationListenerService {
         }
         JSONObject o = new JSONObject();
         o.put("t", now).put("amt", amt).put("name", name).put("app", app);
+        if (Announcer.announcePayment(this, amt, name)) o.put("sp", true);
         old.put(o);
         JSONArray out = new JSONArray();
         for (int i = Math.max(0, old.length() - 200); i < old.length(); i++) out.put(old.get(i));
